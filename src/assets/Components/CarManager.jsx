@@ -537,17 +537,17 @@ function CarManager() {
                         <div>
                           {p.statuses?.map((stt, stIndex) => (
                             <div key={stIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                              <select
-                                value={stt}
-                                onChange={e => handleStatusChange(rcIndex, pIndex, stIndex, e.target.value)}
-                                required
-                                style={{ flex: 1, padding: 8 }}
-                              >
-                                <option value="">-- Chọn trạng thái --</option>
-                                {statuses.map(statusOpt => (
-                                  <option key={statusOpt._id} value={statusOpt._id}>{statusOpt.name}</option>
-                                ))}
-                              </select>
+                              <Select
+                                value={statuses.find(opt => opt._id === stt) || null}
+                                onChange={selected => handleStatusChange(rcIndex, pIndex, stIndex, selected?._id || '')}
+                                options={statuses}
+                                getOptionLabel={opt => opt.name}
+                                getOptionValue={opt => opt._id}
+                                placeholder="-- Chọn trạng thái --"
+                                isClearable
+                                styles={{ container: base => ({ ...base, flex: 1 }) }}
+                              />
+
                               <button type="button" onClick={() => removeStatusFromProduct(rcIndex, pIndex, stIndex)}>❌</button>
                             </div>
                           ))}
@@ -558,17 +558,17 @@ function CarManager() {
                         <div style={{ marginTop: 8 }}>
                           {p.solutions?.map((sol, sIndex) => (
                             <div key={sIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                              <select
-                                value={sol}
-                                onChange={e => handleSolutionChange(rcIndex, pIndex, sIndex, e.target.value)}
-                                required
-                                style={{ flex: 1, padding: 8 }}
-                              >
-                                <option value="">-- Chọn giải pháp --</option>
-                                {solutions.map(solOpt => (
-                                  <option key={solOpt._id} value={solOpt._id}>{solOpt.name}</option>
-                                ))}
-                              </select>
+                              <Select
+                                value={solutions.find(opt => opt._id === sol) || null}
+                                onChange={selected => handleSolutionChange(rcIndex, pIndex, sIndex, selected?._id || '')}
+                                options={solutions}
+                                getOptionLabel={opt => opt.name}
+                                getOptionValue={opt => opt._id}
+                                placeholder="-- Chọn giải pháp --"
+                                isClearable
+                                styles={{ container: base => ({ ...base, flex: 1 }) }}
+                              />
+
                               <button type="button" onClick={() => removeSolutionFromProduct(rcIndex, pIndex, sIndex)}>❌</button>
                             </div>
                           ))}
@@ -598,44 +598,44 @@ function CarManager() {
           ✅ Thêm xe
         </button>
       </form>
-<div style={{ marginBottom: '16px' }}>
-  <button
-    onClick={() => {
-      const filteredCars = cars.filter(car =>
-        car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
-      );
-      const carsToExport = searchPlate.trim() ? filteredCars : cars;
-      exportToExcel(carsToExport, repairContents, products);
-    }}
-    style={{
-      backgroundColor: '#28a745',
-      color: 'white',
-      border: 'none',
-      padding: '8px 16px',
-      borderRadius: 4,
-      cursor: 'pointer'
-    }}
-  >
-    📥 Xuất Excel
-  </button>
-</div>
+      <div style={{ marginBottom: '16px' }}>
+        <button
+          onClick={() => {
+            const filteredCars = cars.filter(car =>
+              car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
+            );
+            const carsToExport = searchPlate.trim() ? filteredCars : cars;
+            exportToExcel(carsToExport, repairContents, products);
+          }}
+          style={{
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: 4,
+            cursor: 'pointer'
+          }}
+        >
+          📥 Xuất Excel
+        </button>
+      </div>
 
-{/* Ô tìm kiếm biển số */}
-<div style={{ marginBottom: '16px' }}>
-  <input
-    type="text"
-    placeholder="🔍 Tìm theo biển số..."
-    value={searchPlate}
-    onChange={(e) => setSearchPlate(e.target.value)}
-    style={{
-      padding: '8px 12px',
-      borderRadius: 4,
-      border: '1px solid #ccc',
-      width: '250px',
-      marginRight: '12px'
-    }}
-  />
-</div>
+      {/* Ô tìm kiếm biển số */}
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          type="text"
+          placeholder="🔍 Tìm theo biển số..."
+          value={searchPlate}
+          onChange={(e) => setSearchPlate(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 4,
+            border: '1px solid #ccc',
+            width: '250px',
+            marginRight: '12px'
+          }}
+        />
+      </div>
 
 
       {/* Danh sách xe */}
@@ -820,212 +820,209 @@ function CarManager() {
       </div>
 
       {/* Form chỉnh sửa xe */}
-      {editingId && (
-        <form onSubmit={handleUpdate} style={{
-          padding: 20,
-          border: '1px solid #ccc',
-          borderRadius: 8,
-          maxWidth: 800,
-          margin: '40px auto 0',
-          background: '#f9f9f9'
-        }}>
-          <h3 style={{ marginBottom: 20 }}>🛠️ Sửa xe</h3>
+{editingId && (
+  <form onSubmit={handleUpdate} style={{
+    padding: 20,
+    border: '1px solid #ccc',
+    borderRadius: 8,
+    maxWidth: 800,
+    margin: '40px auto 0',
+    background: '#f9f9f9'
+  }}>
+    <h3 style={{ marginBottom: 20 }}>🛠️ Sửa xe</h3>
 
-          {/* Biển số */}
-          <div style={{ marginBottom: 16 }}>
-            <label><strong>Biển số:</strong></label><br />
-            <input
-              name="plateNumber"
-              value={editingForm.plateNumber}
-              onChange={handleEditingFormChange}
-              required
-              style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
+    {/* Biển số */}
+    <div style={{ marginBottom: 16 }}>
+      <label><strong>Biển số:</strong></label><br />
+      <input
+        name="plateNumber"
+        value={editingForm.plateNumber}
+        onChange={handleEditingFormChange}
+        required
+        style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
+      />
+    </div>
+
+    {/* Loại xe */}
+    <div style={{ marginBottom: 16 }}>
+      <label><strong>Loại xe:</strong></label><br />
+      <select
+        name="carType"
+        value={editingForm.carType}
+        onChange={handleEditingFormChange}
+        required
+        style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
+      >
+        <option value="">-- Chọn loại xe --</option>
+        {cateCars.map(c => (
+          <option key={c._id} value={c._id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+
+    {/* Nội dung sửa chữa */}
+    <div>
+      <label><strong>Nội dung sửa chữa:</strong></label>
+      {editingForm.repairContents.map((rc, rcIndex) => {
+        const selectedRepairContent = repairContents.find(r => r._id === rc.repairContent);
+        const isCong = selectedRepairContent?.name?.toLowerCase() === 'công';
+
+        return (
+          <div key={rcIndex} style={{ border: '1px solid #ddd', borderRadius: 4, padding: 12, marginBottom: 12, background: '#fff' }}>
+            {/* Chọn nội dung sửa chữa với react-select */}
+            <Select
+              value={repairContents.find(r => r._id === rc.repairContent) || null}
+              onChange={selected => handleEditingRepairContentChange(rcIndex, selected?._id || '')}
+              options={repairContents}
+              getOptionLabel={opt => opt.name}
+              getOptionValue={opt => opt._id}
+              placeholder="-- Chọn nội dung sửa chữa --"
+              isClearable
             />
-          </div>
 
-          {/* Loại xe */}
-          <div style={{ marginBottom: 16 }}>
-            <label><strong>Loại xe:</strong></label><br />
-            <select
-              name="carType"
-              value={editingForm.carType}
-              onChange={handleEditingFormChange}
-              required
-              style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
-            >
-              <option value="">-- Chọn loại xe --</option>
-              {cateCars.map(c => (
-                <option key={c._id} value={c._id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Nội dung sửa chữa */}
-          <div>
-            <label><strong>Nội dung sửa chữa:</strong></label>
-            {editingForm.repairContents.map((rc, rcIndex) => {
-              const selectedRepairContent = repairContents.find(r => r._id === rc.repairContent);
-              const isCong = selectedRepairContent?.name?.toLowerCase() === 'công';
-
-              return (
-                <div key={rcIndex} style={{ border: '1px solid #ddd', borderRadius: 4, padding: 12, marginBottom: 12, background: '#fff' }}>
-                  {/* Chọn nội dung */}
-                  <select
-                    value={rc.repairContent}
-                    onChange={e => handleEditingRepairContentChange(rcIndex, e.target.value)}
-                    required
-                    style={{ width: '100%', padding: 8, marginBottom: 8 }}
-                  >
-                    <option value="">-- Chọn nội dung sửa chữa --</option>
-                    {repairContents.map(rcOpt => (
-                      <option key={rcOpt._id} value={rcOpt._id}>{rcOpt.name}</option>
-                    ))}
-                  </select>
-
-                  {/* Nếu là "Công" thì hiển thị input tiền công */}
-                  {isCong ? (
-                    <div style={{ marginTop: 10 }}>
-                      <label><strong>Tiền công:</strong></label>
-                      <input
-                        type="text"
-                        value={rc.servicePrice !== undefined && rc.servicePrice !== null
-                          ? rc.servicePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-                          : ''
-                        }
-                        onChange={e => {
-                          const rawValue = e.target.value;
-                          const numericValue = rawValue.replace(/\./g, '');
-                          if (/^\d*$/.test(numericValue)) {
-                            handleServicePriceChange(rcIndex, numericValue === '' ? 0 : Number(numericValue), true);
-                          }
-                        }}
-                        required
-                        placeholder="Nhập tiền công"
-                        style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            {/* Nếu là "Công" thì hiển thị input tiền công */}
+            {isCong ? (
+              <div style={{ marginTop: 10 }}>
+                <label><strong>Tiền công:</strong></label>
+                <input
+                  type="text"
+                  value={rc.servicePrice !== undefined && rc.servicePrice !== null
+                    ? rc.servicePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+                    : ''
+                  }
+                  onChange={e => {
+                    const rawValue = e.target.value;
+                    const numericValue = rawValue.replace(/\./g, '');
+                    if (/^\d*$/.test(numericValue)) {
+                      handleServicePriceChange(rcIndex, numericValue === '' ? 0 : Number(numericValue), true);
+                    }
+                  }}
+                  required
+                  placeholder="Nhập tiền công"
+                  style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Danh sách sản phẩm */}
+                {rc.products.map((p, pIndex) => (
+                  <div key={pIndex} style={{ marginBottom: 10, padding: 10, background: '#f1f1f1', borderRadius: 4 }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                      {/* Sản phẩm với react-select */}
+                      <Select
+                        value={products.find(prod => prod._id === p.product) || null}
+                        onChange={selected => handleEditingProductChange(rcIndex, pIndex, 'product', selected?._id || '')}
+                        options={products}
+                        getOptionLabel={opt => opt.code}
+                        getOptionValue={opt => opt._id}
+                        placeholder="-- Chọn sản phẩm --"
+                        isClearable
+                        styles={{ container: base => ({ flex: 1, ...base }) }}
                       />
+
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.quantity}
+                        onChange={e => handleEditingProductChange(rcIndex, pIndex, 'quantity', +e.target.value)}
+                        style={{ width: 80, padding: 8 }}
+                        required
+                      />
+                      <button type="button" onClick={() => removeEditingProduct(rcIndex, pIndex)}>❌</button>
                     </div>
 
-                  ) : (
-                    <>
-                      {/* Danh sách sản phẩm */}
-                      {rc.products.map((p, pIndex) => (
-                        <div key={pIndex} style={{ marginBottom: 10, padding: 10, background: '#f1f1f1', borderRadius: 4 }}>
-                          <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                            <select
-                              value={p.product}
-                              onChange={e => handleEditingProductChange(rcIndex, pIndex, 'product', e.target.value)}
-                              required
-                              style={{ flex: 1, padding: 8 }}
-                            >
-                              <option value="">-- Chọn sản phẩm --</option>
-                              {products.map(prod => (
-                                <option key={prod._id} value={prod._id}>{prod.code}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              min={1}
-                              value={p.quantity}
-                              onChange={e => handleEditingProductChange(rcIndex, pIndex, 'quantity', +e.target.value)}
-                              style={{ width: 80, padding: 8 }}
-                              required
-                            />
-                            <button type="button" onClick={() => removeEditingProduct(rcIndex, pIndex)}>❌</button>
-                          </div>
-
-                          {/* Trạng thái */}
-                          <div>
-                            {p.statuses?.map((stt, stIndex) => (
-                              <div key={stIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                                <select
-                                  value={stt}
-                                  onChange={e => handleEditingStatusChange(rcIndex, pIndex, stIndex, e.target.value)}
-                                  required
-                                  style={{ flex: 1, padding: 8 }}
-                                >
-                                  <option value="">-- Chọn trạng thái --</option>
-                                  {statuses.map(statusOpt => (
-                                    <option key={statusOpt._id} value={statusOpt._id}>{statusOpt.name}</option>
-                                  ))}
-                                </select>
-                                <button type="button" onClick={() => removeEditingStatusFromProduct(rcIndex, pIndex, stIndex)}>❌</button>
-                              </div>
-                            ))}
-                            <button type="button" onClick={() => addEditingStatusToProduct(rcIndex, pIndex)}>⊕ Trạng thái</button>
-                          </div>
-
-                          {/* Giải pháp */}
-                          <div style={{ marginTop: 8 }}>
-                            {p.solutions?.map((sol, sIndex) => (
-                              <div key={sIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                                <select
-                                  value={sol}
-                                  onChange={e => handleEditingSolutionChange(rcIndex, pIndex, sIndex, e.target.value)}
-                                  required
-                                  style={{ flex: 1, padding: 8 }}
-                                >
-                                  <option value="">-- Chọn giải pháp --</option>
-                                  {solutions.map(solOpt => (
-                                    <option key={solOpt._id} value={solOpt._id}>{solOpt.name}</option>
-                                  ))}
-                                </select>
-                                <button type="button" onClick={() => removeEditingSolutionFromProduct(rcIndex, pIndex, sIndex)}>❌</button>
-                              </div>
-                            ))}
-                            <button type="button" onClick={() => addEditingSolutionToProduct(rcIndex, pIndex)}>🧩 Giải pháp</button>
-                          </div>
+                    {/* Trạng thái */}
+                    <div>
+                      {p.statuses?.map((stt, stIndex) => (
+                        <div key={stIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                          <Select
+                            value={statuses.find(s => s._id === stt) || null}
+                            onChange={selected => handleEditingStatusChange(rcIndex, pIndex, stIndex, selected?._id || '')}
+                            options={statuses}
+                            getOptionLabel={opt => opt.name}
+                            getOptionValue={opt => opt._id}
+                            placeholder="-- Chọn trạng thái --"
+                            isClearable
+                            styles={{ container: base => ({ flex: 1, ...base }) }}
+                          />
+                          <button type="button" onClick={() => removeEditingStatusFromProduct(rcIndex, pIndex, stIndex)}>❌</button>
                         </div>
                       ))}
-                      <button type="button" onClick={() => addEditingProductToRepairContent(rcIndex)} style={{ marginBottom: 8 }}>🆕 Thêm sản phẩm</button><br />
-                    </>
-                  )}
+                      <button type="button" onClick={() => addEditingStatusToProduct(rcIndex, pIndex)}>⊕ Trạng thái</button>
+                    </div>
 
-                  <button type="button" onClick={() => removeEditingRepairContent(rcIndex)}>❌ Xoá nội dung sửa chữa</button>
-                </div>
-              );
-            })}
-            <button type="button" onClick={addEditingRepairContent} style={{ marginTop: 8 }}>➕ Thêm nội dung sửa chữa</button>
+                    {/* Giải pháp */}
+                    <div style={{ marginTop: 8 }}>
+                      {p.solutions?.map((sol, sIndex) => (
+                        <div key={sIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                          <Select
+                            value={solutions.find(s => s._id === sol) || null}
+                            onChange={selected => handleEditingSolutionChange(rcIndex, pIndex, sIndex, selected?._id || '')}
+                            options={solutions}
+                            getOptionLabel={opt => opt.name}
+                            getOptionValue={opt => opt._id}
+                            placeholder="-- Chọn giải pháp --"
+                            isClearable
+                            styles={{ container: base => ({ flex: 1, ...base }) }}
+                          />
+                          <button type="button" onClick={() => removeEditingSolutionFromProduct(rcIndex, pIndex, sIndex)}>❌</button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addEditingSolutionToProduct(rcIndex, pIndex)}>🧩 Giải pháp</button>
+                    </div>
+                  </div>
+                ))}
+                <button type="button" onClick={() => addEditingProductToRepairContent(rcIndex)} style={{ marginBottom: 8 }}>🆕 Thêm sản phẩm</button><br />
+              </>
+            )}
+
+            <button type="button" onClick={() => removeEditingRepairContent(rcIndex)}>❌ Xoá nội dung sửa chữa</button>
           </div>
+        );
+      })}
+      <button type="button" onClick={addEditingRepairContent} style={{ marginTop: 8 }}>➕ Thêm nội dung sửa chữa</button>
+    </div>
 
-          <button type="submit" style={{
-            marginTop: 20,
-            padding: '10px 20px',
-            background: '#4caf50',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            fontSize: 16,
-            fontWeight: 'bold'
-          }}>
-            ✅ Cập nhật xe
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingId(null);
-              setEditingForm({
-                plateNumber: '',
-                carType: '',
-                repairContents: [],
-              });
-            }}
-            style={{
-              marginLeft: 10,
-              marginTop: 20,
-              padding: '10px 20px',
-              background: '#f44336',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 4,
-              fontSize: 16,
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            Huỷ
-          </button>
-        </form>
-      )}
+    <button type="submit" style={{
+      marginTop: 20,
+      padding: '10px 20px',
+      background: '#4caf50',
+      color: '#fff',
+      border: 'none',
+      borderRadius: 4,
+      fontSize: 16,
+      fontWeight: 'bold'
+    }}>
+      ✅ Cập nhật xe
+    </button>
+    <button
+      type="button"
+      onClick={() => {
+        setEditingId(null);
+        setEditingForm({
+          plateNumber: '',
+          carType: '',
+          repairContents: [],
+        });
+      }}
+      style={{
+        marginLeft: 10,
+        marginTop: 20,
+        padding: '10px 20px',
+        background: '#f44336',
+        color: '#fff',
+        border: 'none',
+        borderRadius: 4,
+        fontSize: 16,
+        fontWeight: 'bold',
+        cursor: 'pointer'
+      }}
+    >
+      Huỷ
+    </button>
+  </form>
+)}
+
 
     </div>
   );

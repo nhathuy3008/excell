@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import {
   TextField, Button, Dialog, DialogActions, DialogContent,
   DialogTitle, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, IconButton, Select, MenuItem
+  TableHead, TableRow, Paper, IconButton, Select, MenuItem, Typography
 } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { Edit, Delete, RemoveCircleOutline } from "@mui/icons-material";
 import {
   getProducts, createProduct, deleteProduct, updateProduct
 } from "../api/productApi";
@@ -20,7 +20,7 @@ const ProductManager = () => {
     code: "",
     brand: "",
     origin: "",
-    specs: "",
+    specs: [""], // mỗi thông số là 1 input
     unit: "",
     price: "",
     tax: ""
@@ -45,10 +45,25 @@ const ProductManager = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleChangeSpec = (index, value) => {
+    const newSpecs = [...form.specs];
+    newSpecs[index] = value;
+    setForm({ ...form, specs: newSpecs });
+  };
+
+  const handleAddSpecField = () => {
+    setForm({ ...form, specs: [...form.specs, ""] });
+  };
+
+  const handleRemoveSpecField = (index) => {
+    const newSpecs = form.specs.filter((_, i) => i !== index);
+    setForm({ ...form, specs: newSpecs });
+  };
+
   const handleSubmit = async () => {
     const productData = {
       ...form,
-      specs: form.specs.split(",").map(s => s.trim()),
+      specs: form.specs.filter((s) => s.trim() !== ""),
       price: parseFloat(form.price),
       tax: parseFloat(form.tax)
     };
@@ -74,7 +89,7 @@ const ProductManager = () => {
       code: product.code,
       brand: product.brand || "",
       origin: product.origin || "",
-      specs: product.specs.join(", "),
+      specs: product.specs || [""],
       unit: product.unit?._id || "",
       price: product.price,
       tax: product.tax
@@ -89,7 +104,7 @@ const ProductManager = () => {
       code: "",
       brand: "",
       origin: "",
-      specs: "",
+      specs: [""],
       unit: "",
       price: "",
       tax: ""
@@ -153,7 +168,27 @@ const ProductManager = () => {
           <TextField label="Mã hàng" name="code" value={form.code} onChange={handleChange} required />
           <TextField label="Thương hiệu" name="brand" value={form.brand} onChange={handleChange} />
           <TextField label="Xuất xứ" name="origin" value={form.origin} onChange={handleChange} />
-          <TextField label="Thông số (ngăn cách bởi dấu phẩy)" name="specs" value={form.specs} onChange={handleChange} />
+          
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>Thông số kỹ thuật</Typography>
+          {form.specs.map((spec, index) => (
+            <div key={index} style={{ display: "flex", gap: 8 }}>
+              <TextField
+                fullWidth
+                label={`Thông số #${index + 1}`}
+                value={spec}
+                onChange={(e) => handleChangeSpec(index, e.target.value)}
+              />
+              {form.specs.length > 1 && (
+                <IconButton onClick={() => handleRemoveSpecField(index)} color="error">
+                  <RemoveCircleOutline />
+                </IconButton>
+              )}
+            </div>
+          ))}
+          <Button onClick={handleAddSpecField} variant="outlined" size="small">
+            Thêm thông số
+          </Button>
+
           <Select name="unit" value={form.unit} onChange={handleChange} displayEmpty>
             <MenuItem value=""><em>Chọn đơn vị</em></MenuItem>
             {units.map((u) => (
