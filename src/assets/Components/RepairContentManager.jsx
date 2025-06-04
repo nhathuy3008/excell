@@ -24,7 +24,7 @@ import { Edit, Delete, Save, Cancel } from "@mui/icons-material";
 
 function RepairContentManager() {
   const [repairContents, setRepairContents] = useState([]);
-  const [form, setForm] = useState({ name: "" });
+  const [input, setInput] = useState(""); // Gộp "search" và "form.name"
   const [editingId, setEditingId] = useState(null);
   const [editingForm, setEditingForm] = useState({});
 
@@ -41,21 +41,23 @@ function RepairContentManager() {
     }
   };
 
-  const handleChange = (e, isEdit = false) => {
-    const { name, value } = e.target;
-    if (isEdit) {
-      setEditingForm({ ...editingForm, [name]: value });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
-  };
-
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+
+    // Kiểm tra trùng tên
+    const existed = repairContents.some(
+      (item) => item.name.toLowerCase() === trimmedInput.toLowerCase()
+    );
+    if (existed) {
+      alert("Nội dung sửa chữa đã tồn tại!");
+      return;
+    }
+
     try {
-      await createRepairContent(form);
-      setForm({ name: "" });
+      await createRepairContent({ name: trimmedInput });
+      setInput("");
       fetchRepairContents();
     } catch (error) {
       console.error("Lỗi tạo nội dung sửa chữa:", error);
@@ -105,27 +107,25 @@ function RepairContentManager() {
         Quản lý Nội dung sửa chữa
       </Typography>
 
-      {/* Form thêm */}
+      {/* Ô gộp tìm kiếm và thêm */}
       <Box
         component="form"
         onSubmit={handleCreate}
         sx={{ display: "flex", gap: 2, mb: 3 }}
       >
         <TextField
-          name="name"
-          label="Tên nội dung sửa chữa"
-          value={form.name}
-          onChange={handleChange}
+          label="Tìm kiếm hoặc thêm nội dung"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           variant="outlined"
           fullWidth
-          required
         />
         <Button variant="contained" color="primary" type="submit">
           Thêm
         </Button>
       </Box>
 
-      {/* Bảng danh sách */}
+      {/* Bảng danh sách lọc theo input */}
       <Paper>
         <Table>
           <TableHead>
@@ -135,48 +135,60 @@ function RepairContentManager() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {repairContents.map((item) => (
-              <TableRow key={item._id}>
-                <TableCell>
-                  {editingId === item._id ? (
-                    <TextField
-                      name="name"
-                      value={editingForm.name}
-                      onChange={(e) => handleChange(e, true)}
-                      size="small"
-                      fullWidth
-                      required
-                    />
-                  ) : (
-                    item.name
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  {editingId === item._id ? (
-                    <>
-                      <IconButton color="primary" onClick={handleUpdate}>
-                        <Save />
-                      </IconButton>
-                      <IconButton
-                        color="secondary"
-                        onClick={() => setEditingId(null)}
-                      >
-                        <Cancel />
-                      </IconButton>
-                    </>
-                  ) : (
-                    <>
-                      <IconButton color="primary" onClick={() => handleEdit(item)}>
-                        <Edit />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => handleDelete(item._id)}>
-                        <Delete />
-                      </IconButton>
-                    </>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
+            {repairContents
+              .filter((item) =>
+                item.name.toLowerCase().includes(input.toLowerCase())
+              )
+              .map((item) => (
+                <TableRow key={item._id}>
+                  <TableCell>
+                    {editingId === item._id ? (
+                      <TextField
+                        name="name"
+                        value={editingForm.name}
+                        onChange={(e) =>
+                          setEditingForm({
+                            ...editingForm,
+                            name: e.target.value,
+                          })
+                        }
+                        size="small"
+                        fullWidth
+                        required
+                      />
+                    ) : (
+                      item.name
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    {editingId === item._id ? (
+                      <>
+                        <IconButton color="primary" onClick={handleUpdate}>
+                          <Save />
+                        </IconButton>
+                        <IconButton
+                          color="secondary"
+                          onClick={() => setEditingId(null)}
+                        >
+                          <Cancel />
+                        </IconButton>
+                      </>
+                    ) : (
+                      <>
+                        <IconButton color="primary" onClick={() => handleEdit(item)}>
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDelete(item._id)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </Paper>

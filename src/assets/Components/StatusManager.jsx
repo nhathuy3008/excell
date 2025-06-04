@@ -90,7 +90,6 @@ const StatusManager = () => {
       <Button variant="contained" color="primary" onClick={() => handleOpen()}>
         Thêm Status
       </Button>
-
       <TableContainer component={Paper} style={{ marginTop: 20 }}>
         <Table>
           <TableHead>
@@ -106,47 +105,30 @@ const StatusManager = () => {
                 <TableCell>{status.name}</TableCell>
                 <TableCell>{new Date(status.createdAt).toLocaleString()}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleOpen(status)}>
-                    <Edit />
-                  </IconButton>
-                  <IconButton onClick={() => handleDelete(status._id)}>
-                    <Delete />
-                  </IconButton>
+                  <IconButton onClick={() => handleOpen(status)}><Edit /></IconButton>
+                  <IconButton onClick={() => handleDelete(status._id)}><Delete /></IconButton>
                 </TableCell>
               </TableRow>
             ))}
             {statuses.length === 0 && (
               <TableRow>
-                <TableCell colSpan={3} align="center">
-                  Không có status nào.
-                </TableCell>
+                <TableCell colSpan={3} align="center">Không có status nào.</TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
-
       <Dialog open={openDialog} onClose={handleClose}>
         <DialogTitle>{editId ? "Chỉnh sửa trạng thái" : "Thêm trạng thái"}</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Tên Status"
-            fullWidth
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <TextField autoFocus margin="dense" label="Tên Status" fullWidth value={name} onChange={(e) => setName(e.target.value)} />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Hủy</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
-            {editId ? "Cập nhật" : "Thêm"}
-          </Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary">{editId ? "Cập nhật" : "Thêm"}</Button>
         </DialogActions>
       </Dialog>
     </div>
   );
 };
-
 export default StatusManager;
