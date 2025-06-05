@@ -86,20 +86,22 @@ const exportToExcel = async (cars, repairContents, products) => {
     fitToPage: false, // Tắt fit to page để control scale chính xác
     scale: 68, // Scale phù hợp để hiển thị tốt
     margins: {
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 0,
+      left: 0, // Margin trái để căn giữa
+      right: 0, // Margin phải để căn giữa
+      top: 0, // Margin trên
+      bottom: 0, // Margin dưới
       header: 0.0,
       footer: 0.0
     },
+    horizontalCentered: true, // Căn giữa theo chiều ngang
+    verticalCentered: false, // Không căn giữa theo chiều dọc (để giữ từ trên xuống)
     blackAndWhite: false,
     draft: false,
     cellComments: 'None',
     errors: 'displayed'
   };
 
-  // Thiết lập độ rộng cột tối ưu
+  // Thiết lập độ rộng cột tối ưu - ĐIỀU CHỈNH THEO YÊU CẦU
   worksheet.columns = [
     { header: 'Mã sản phẩm', key: 'code', width: 18 },
     { header: 'Thương hiệu', key: 'brand', width: 12 },
@@ -109,9 +111,9 @@ const exportToExcel = async (cars, repairContents, products) => {
     { header: 'Thuế (%)', key: 'tax', width: 10 },
     { header: 'Số lượng', key: 'quantity', width: 12 },
     { header: 'Giá bán', key: 'price', width: 18 },
-    { header: 'Tiền sau thuế', key: 'totalAfterTax', width: 22 },
-    { header: 'Trạng thái', key: 'statuses', width: 25 },
-    { header: 'Giải pháp', key: 'solutions', width: 25 },
+    { header: 'Tiền sau thuế', key: 'totalAfterTax', width: 22 }, // Tăng từ 22 lên 22
+    { header: 'Trạng thái', key: 'statuses', width: 19 }, // Giảm từ 20 xuống 19
+    { header: 'Giải pháp', key: 'solutions', width: 20 }, // Giảm từ 20 xuống 20
   ];
 
   // Định nghĩa styles chuẩn
@@ -196,7 +198,7 @@ const exportToExcel = async (cars, repairContents, products) => {
       cell.value = col.header;
       applyCellStyle(cell, {
         fill: styles.headerFill,
-        font: { bold: true, size: 11, name: 'Arial' },
+        font: { bold: true, size: 13, name: 'Arial' },
         border: styles.mediumBorder,
         alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }
       });
@@ -210,131 +212,140 @@ const exportToExcel = async (cars, repairContents, products) => {
   for (const car of cars) {
     // === HEADER BIỂN SỐ XE ===
     worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
-    const carHeaderText = `🚗 BIỂN SỐ: ${car.plateNumber} | LOẠI XE: ${car.carType?.name || 'N/A'}`;
+const carHeaderText = `🚗 BIỂN SỐ: ${car.plateNumber} | LOẠI XE: ${car.carType?.name || 'N/A'}`;
 
-    const carHeaderCell = worksheet.getCell(rowIndex, 1);
-    carHeaderCell.value = carHeaderText;
-    applyCellStyle(carHeaderCell, {
-      fill: styles.carHeaderFill,
-      font: { bold: true, size: 16, name: 'Arial', color: { argb: 'FFDC143C' } }, // Màu đỏ
-      border: styles.thickBorder,
-      alignment: { horizontal: 'center', vertical: 'middle' }
+const carHeaderCell = worksheet.getCell(rowIndex, 1);
+carHeaderCell.value = carHeaderText;
+applyCellStyle(carHeaderCell, {
+  fill: styles.carHeaderFill,
+  font: { bold: true, size: 16, name: 'Arial', color: { argb: 'FFDC143C' } }, // Màu đỏ
+  border: styles.thickBorder,
+  alignment: { horizontal: 'center', vertical: 'middle' }
+});
+
+// Apply style cho toàn bộ merged range
+applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
+  fill: styles.carHeaderFill,
+  border: styles.thickBorder
+});
+
+worksheet.getRow(rowIndex).height = 80; // Đã sửa từ 35 thành 80
+rowIndex++;
+
+// === XỬ LÝ TỪNG REPAIR CONTENT ===
+for (const rc of car.repairContents || []) {
+  // Header nội dung sửa chữa
+  worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
+
+  const rcName = repairContents.find(item =>
+    item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
+  )?.name || rc.name || 'Không có tên';
+
+  const rcHeaderText = `🔧 NỘI DUNG SỬA CHỮA: ${rcName}`;
+
+  const rcHeaderCell = worksheet.getCell(rowIndex, 1);
+  rcHeaderCell.value = rcHeaderText;
+  applyCellStyle(rcHeaderCell, {
+    fill: styles.repairContentFill,
+    font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF000000' } },
+    border: styles.mediumBorder,
+    alignment: { horizontal: 'center', vertical: 'middle' }
+  });
+
+  // Apply style cho merged range
+  applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
+    fill: styles.repairContentFill,
+    border: styles.mediumBorder
+  });
+
+  worksheet.getRow(rowIndex).height = 80; // Đã sửa từ 30 thành 80
+  rowIndex++;
+
+  // Header bảng sản phẩm
+  rowIndex = createProductHeader(rowIndex);
+
+  // === XỬ LÝ PRODUCTS ===
+  const rcProducts = rc.products || [];
+  const validProducts = rcProducts.filter(p =>
+    products.find(prod => prod._id === (p.product._id || p.product))
+  );
+
+ // Hàm ước lượng số dòng cần thiết sau khi wrapText
+function estimateWrappedLineCount(text, columnWidth, fontSize = 15) {
+  const avgCharWidth = fontSize * 0.6;        // Ước lượng chiều rộng trung bình của 1 ký tự
+  const pxPerChar = columnWidth * 7;          // 1 unit trong ExcelJS ~ 7px
+  const maxCharsPerLine = Math.floor(pxPerChar / avgCharWidth);
+
+  const lines = text.split('\n');
+  return lines.reduce((count, line) => {
+    return count + Math.max(1, Math.ceil(line.length / maxCharsPerLine));
+  }, 0);
+}
+
+if (validProducts.length > 0) {
+  // ĐIỀU CHỈNH COLUMN WIDTHS THEO YÊU CẦU
+  const columnWidths = [18, 12, 15, 30, 12, 10, 12, 18, 22, 19, 20];
+  columnWidths.forEach((width, index) => {
+    worksheet.getColumn(index + 1).width = width;
+  });
+
+  validProducts.forEach(p => {
+    const prod = products.find(pr => pr._id === (p.product._id || p.product));
+    if (!prod) return;
+
+    const total = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+    const row = worksheet.getRow(rowIndex);
+
+    const specs = (prod.specs || []).length > 0
+      ? (prod.specs || []).map(s => `• ${s}`).join('\n')
+      : 'N/A';
+
+    const statuses = p.statuses?.map(st => st.name).join(', ') || 'Chưa có';
+    const solutions = p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có';
+
+    const rowData = [
+      prod.code || 'N/A',
+      prod.brand || 'N/A',
+      prod.origin || 'N/A',
+      specs,
+      prod.unit?.name || 'N/A',
+      prod.tax ? `${prod.tax}%` : '0%',
+      p.quantity || 1,
+      formatMoney(prod.price),
+      formatMoney(total),
+      statuses,
+      solutions
+    ];
+
+    rowData.forEach((value, index) => {
+      const cell = row.getCell(index + 1);
+      cell.value = value;
+
+      // Cột thứ 4 (index === 3) là specs -> font size 15
+      const isSpecsColumn = index === 3;
+      applyCellStyle(cell, {
+        font: { size: isSpecsColumn ? 15 : 12, name: 'Arial' },
+        border: styles.thinBorder,
+        alignment: {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        }
+      });
     });
 
-    // Apply style cho toàn bộ merged range
-    applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
-      fill: styles.carHeaderFill,
-      border: styles.thickBorder
-    });
+    // Tính chiều cao dòng dựa trên specs
+    const specsColumnWidth = columnWidths[3]; // Cột specs là cột thứ 4
+    const specsLineCount = estimateWrappedLineCount(specs, specsColumnWidth, 15);
+    const baseHeight = 20;
+    const lineHeight = 22; // điều chỉnh cao hơn nếu text nhiều
+    row.height = baseHeight + specsLineCount * lineHeight;
 
-    worksheet.getRow(rowIndex).height = 35;
     rowIndex++;
+  });
+}
 
-    // === XỬ LÝ TỪNG REPAIR CONTENT ===
-    for (const rc of car.repairContents || []) {
-      // Header nội dung sửa chữa
-      worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
-
-      const rcName = repairContents.find(item =>
-        item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
-      )?.name || rc.name || 'Không có tên';
-
-      const rcHeaderText = `🔧 NỘI DUNG SỬA CHỮA: ${rcName}`;
-
-      const rcHeaderCell = worksheet.getCell(rowIndex, 1);
-      rcHeaderCell.value = rcHeaderText;
-      applyCellStyle(rcHeaderCell, {
-        fill: styles.repairContentFill,
-        font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF000000' } },
-        border: styles.mediumBorder,
-        alignment: { horizontal: 'center', vertical: 'middle' }
-      });
-
-      // Apply style cho merged range
-      applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
-        fill: styles.repairContentFill,
-        border: styles.mediumBorder
-      });
-
-      worksheet.getRow(rowIndex).height = 30;
-      rowIndex++;
-
-      // Header bảng sản phẩm
-      rowIndex = createProductHeader(rowIndex);
-
-      // === XỬ LÝ PRODUCTS ===
-      const rcProducts = rc.products || [];
-      const validProducts = rcProducts.filter(p =>
-        products.find(prod => prod._id === (p.product._id || p.product))
-      );
-
-      if (validProducts.length > 0) {
-        // Thiết lập độ rộng cột một lần (có thể điều chỉnh theo thực tế)
-        const columnWidths = [15, 15, 15, 40, 10, 10, 10, 15, 15, 25, 25];
-        columnWidths.forEach((width, index) => {
-          worksheet.getColumn(index + 1).width = width;
-        });
       
-        validProducts.forEach(p => {
-          const prod = products.find(pr => pr._id === (p.product._id || p.product));
-          if (!prod) return;
-      
-          const total = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
-          const row = worksheet.getRow(rowIndex);
-      
-          const specs = (prod.specs || []).length > 0
-            ? (prod.specs || []).map(s => `• ${s}`).join('\n')
-            : 'N/A';
-      
-          const statuses = p.statuses?.map(st => st.name).join(', ') || 'Chưa có';
-          const solutions = p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có';
-      
-          const rowData = [
-            prod.code || 'N/A',
-            prod.brand || 'N/A',
-            prod.origin || 'N/A',
-            specs,
-            prod.unit?.name || 'N/A',
-            prod.tax ? `${prod.tax}%` : '0%',
-            p.quantity || 1,
-            formatMoney(prod.price),
-            formatMoney(total),
-            statuses,
-            solutions
-          ];
-      
-          rowData.forEach((value, index) => {
-            const cell = row.getCell(index + 1);
-            cell.value = value;
-      
-            applyCellStyle(cell, {
-              font: { size: 10, name: 'Arial' },
-              border: styles.thinBorder,
-              alignment: {
-                horizontal: 'center',
-                vertical: 'middle',
-                wrapText: true
-              }
-            });
-          });
-      
-          // Tính chiều cao dòng dựa trên nội dung dài nhất (không chỉ specs)
-          const CHAR_PER_LINE = 40; // nhỏ hơn giúp an toàn hơn nếu font nhỏ
-          const multiLineFields = [specs, statuses, solutions];
-          const longestLineCount = Math.max(
-            ...multiLineFields.map(text => {
-              const lines = text.split('\n');
-              return lines.reduce((acc, line) => acc + Math.ceil(line.length / CHAR_PER_LINE), 0);
-            })
-          );
-      
-          const baseHeight = 20; // dòng tối thiểu
-          const lineHeight = 16; // chiều cao mỗi dòng
-          row.height = baseHeight + longestLineCount * lineHeight;
-      
-          rowIndex++;
-        });
-      }
       
        else if (rc.servicePrice) {
         // Có dịch vụ công
@@ -360,7 +371,7 @@ const exportToExcel = async (cars, repairContents, products) => {
           cell.value = value;
       
           applyCellStyle(cell, {
-            font: { size: 10, name: 'Arial', italic: true },
+            font: { size: 12, name: 'Arial', italic: true },
             border: styles.thinBorder,
             fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } },
             alignment: {
@@ -417,7 +428,7 @@ const exportToExcel = async (cars, repairContents, products) => {
     totalLabelCell.value = '💰 TỔNG TIỀN XE:';
     applyCellStyle(totalLabelCell, {
       fill: styles.totalFill,
-      font: { bold: true, size: 12, name: 'Arial' },
+      font: { bold: true, size: 15, name: 'Arial' },
       border: styles.mediumBorder,
       alignment: { horizontal: 'right', vertical: 'middle' }
     });
@@ -427,7 +438,7 @@ const exportToExcel = async (cars, repairContents, products) => {
     totalAmountCell.value = formatMoney(carTotal);
     applyCellStyle(totalAmountCell, {
       fill: styles.totalFill,
-      font: { bold: true, size: 12, name: 'Arial', color: { argb: 'FF0066CC' } },
+      font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF0066CC' } },
       border: styles.mediumBorder,
       alignment: { horizontal: 'center', vertical: 'middle' }
     });
@@ -437,7 +448,7 @@ const exportToExcel = async (cars, repairContents, products) => {
     totalTextCell.value = numberToVietnameseText(carTotal);
     applyCellStyle(totalTextCell, {
       fill: styles.totalFill,
-      font: { bold: true, size: 10, name: 'Arial', italic: true },
+      font: { bold: true, size: 14, name: 'Arial', italic: true },
       border: styles.mediumBorder,
       alignment: { horizontal: 'left', vertical: 'middle', wrapText: true }
     });
@@ -452,9 +463,8 @@ const exportToExcel = async (cars, repairContents, products) => {
       border: styles.mediumBorder
     });
 
-    // Tính chiều cao dựa vào độ dài text tiền chữ
-    const moneyTextLength = numberToVietnameseText(carTotal).length;
-    totalRow.height = Math.max(30, Math.ceil(moneyTextLength / 40) * 15);
+    // Tính chiều cao dựa vào độ dài text tiền chữ - CỐ ĐỊNH 30 ĐỂ ĐẸP HơN KHI IN
+    totalRow.height = 80;
 
     rowIndex += 2; // Khoảng cách giữa các xe
   }
@@ -470,7 +480,7 @@ const exportToExcel = async (cars, repairContents, products) => {
   grandTotalLabelCell.value = '🏆 TỔNG TIỀN TẤT CẢ XE:';
   applyCellStyle(grandTotalLabelCell, {
     fill: styles.totalFill,
-    font: { bold: true, size: 14, name: 'Arial' },
+    font: { bold: true, size: 16, name: 'Arial' },
     border: styles.thickBorder,
     alignment: { horizontal: 'right', vertical: 'middle' }
   });
@@ -490,7 +500,7 @@ const exportToExcel = async (cars, repairContents, products) => {
   grandTotalTextCell.value = numberToVietnameseText(totalAllCars);
   applyCellStyle(grandTotalTextCell, {
     fill: styles.totalFill,
-    font: { bold: true, size: 12, name: 'Arial', italic: true },
+    font: { bold: true, size: 14, name: 'Arial', italic: true },
     border: styles.thickBorder,
     alignment: { horizontal: 'left', vertical: 'middle', wrapText: true }
   });
@@ -505,8 +515,8 @@ const exportToExcel = async (cars, repairContents, products) => {
     border: styles.thickBorder
   });
 
-  const grandTotalTextLength = numberToVietnameseText(totalAllCars).length;
-  grandTotalRow.height = Math.max(35, Math.ceil(grandTotalTextLength / 40) * 15);
+  // Tổng tiền bằng chữ - CỐ ĐỊNH CHIỀU CAO 30 ĐỂ ĐẸP HơN KHI IN
+  grandTotalRow.height = 90;
 
   // === XUẤT FILE ===
   const buffer = await workbook.xlsx.writeBuffer();
