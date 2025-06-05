@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "https://excel-ndpr.onrender.com/api/statuses";
+const API_BASE = "http://localhost:3000/api/statuses";
 
 export const getStatuses = () => axios.get(`${API_BASE}`);
 export const createStatus = (data) => axios.post(`${API_BASE}/create`, data);
