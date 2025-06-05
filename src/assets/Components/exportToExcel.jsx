@@ -269,54 +269,74 @@ const exportToExcel = async (cars, repairContents, products) => {
       );
 
       if (validProducts.length > 0) {
-        // Có sản phẩm
+        // Thiết lập độ rộng cột một lần (có thể điều chỉnh theo thực tế)
+        const columnWidths = [15, 15, 15, 40, 10, 10, 10, 15, 15, 25, 25];
+        columnWidths.forEach((width, index) => {
+          worksheet.getColumn(index + 1).width = width;
+        });
+      
         validProducts.forEach(p => {
           const prod = products.find(pr => pr._id === (p.product._id || p.product));
           if (!prod) return;
-
+      
           const total = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
           const row = worksheet.getRow(rowIndex);
-
-          // Điền dữ liệu cho từng cột
+      
+          const specs = (prod.specs || []).length > 0
+            ? (prod.specs || []).map(s => `• ${s}`).join('\n')
+            : 'N/A';
+      
+          const statuses = p.statuses?.map(st => st.name).join(', ') || 'Chưa có';
+          const solutions = p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có';
+      
           const rowData = [
             prod.code || 'N/A',
             prod.brand || 'N/A',
             prod.origin || 'N/A',
-            (prod.specs || []).length > 0 ? (prod.specs || []).map(s => `• ${s}`).join('\n') : 'N/A',
+            specs,
             prod.unit?.name || 'N/A',
             prod.tax ? `${prod.tax}%` : '0%',
             p.quantity || 1,
             formatMoney(prod.price),
             formatMoney(total),
-            p.statuses?.map(st => st.name).join(', ') || 'Chưa có',
-            p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có'
-
+            statuses,
+            solutions
           ];
-
-          // Apply dữ liệu và style cho từng cell
+      
           rowData.forEach((value, index) => {
             const cell = row.getCell(index + 1);
             cell.value = value;
-
+      
             applyCellStyle(cell, {
               font: { size: 10, name: 'Arial' },
               border: styles.thinBorder,
               alignment: {
-                horizontal: 'center', // luôn căn giữa ngang
+                horizontal: 'center',
                 vertical: 'middle',
                 wrapText: true
               }
             });
           });
-
-
-          // Tính chiều cao dựa vào specs
-          const specsCount = (prod.specs || []).length;
-          row.height = Math.max(25, specsCount * 15 + 10);
+      
+          // Tính chiều cao dòng dựa trên nội dung dài nhất (không chỉ specs)
+          const CHAR_PER_LINE = 40; // nhỏ hơn giúp an toàn hơn nếu font nhỏ
+          const multiLineFields = [specs, statuses, solutions];
+          const longestLineCount = Math.max(
+            ...multiLineFields.map(text => {
+              const lines = text.split('\n');
+              return lines.reduce((acc, line) => acc + Math.ceil(line.length / CHAR_PER_LINE), 0);
+            })
+          );
+      
+          const baseHeight = 20; // dòng tối thiểu
+          const lineHeight = 16; // chiều cao mỗi dòng
+          row.height = baseHeight + longestLineCount * lineHeight;
+      
           rowIndex++;
         });
-
-      } else if (rc.servicePrice) {
+      }
+      
+       else if (rc.servicePrice) {
         // Có dịch vụ công
         const totalServicePrice = calculateTotalAfterTax(rc.servicePrice, 8, 1);
         const row = worksheet.getRow(rowIndex);
