@@ -20,13 +20,13 @@ import {
   IconButton,
 } from "@mui/material";
 
-import { Edit, Delete, Save, Cancel } from "@mui/icons-material";
+import { Edit, Delete, Save, Cancel, AddCircleOutline } from "@mui/icons-material"; // Added AddCircleOutline
 
 function CateCarManager() {
   const [cateCars, setCateCars] = useState([]);
   const [form, setForm] = useState({ name: "" });
   const [editingId, setEditingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({});
+  const [editingForm, setEditingForm] = useState({ name: "" }); 
 
   useEffect(() => {
     fetchCateCars();
@@ -73,7 +73,7 @@ function CateCarManager() {
     try {
       await updateCateCar(editingId, editingForm);
       setEditingId(null);
-      setEditingForm({});
+      setEditingForm({ name: "" }); 
       fetchCateCars();
     } catch (error) {
       console.error("Lỗi cập nhật danh mục xe:", error);
@@ -81,6 +81,7 @@ function CateCarManager() {
   };
 
   const handleDelete = async (id) => {
+    // Consider adding a confirmation dialog
     try {
       await deleteCateCar(id);
       fetchCateCars();
@@ -89,55 +90,49 @@ function CateCarManager() {
     }
   };
 
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingForm({ name: "" });
+  }
+
   return (
-    <Box
-      sx={{
-        maxWidth: 600,
-        mx: "auto",
-        mt: 5,
-        p: 3,
-        backgroundColor: "#fff",
-        borderRadius: 2,
-        boxShadow: 3,
-      }}
-    >
-      <Typography variant="h5" gutterBottom>
+    <Box sx={{ maxWidth: 1200, width: '100%', p: 5, backgroundColor: 'background.paper', borderRadius: 3, boxShadow: 3, mt: 8, ml: 30 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4, textAlign: 'center', fontWeight: 'bold', color: 'primary.main' }}>
         Quản lý Danh mục xe
       </Typography>
 
-      {/* Form thêm */}
       <Box
         component="form"
         onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 2, mb: 3 }}
+        sx={{ display: "flex", gap: 1.5, mb: 4, alignItems: 'center' }}
       >
         <TextField
           name="name"
-          label="Tên danh mục xe"
+          label="Tên danh mục xe mới"
           value={form.name}
           onChange={handleChange}
           variant="outlined"
           fullWidth
           required
+          size="small"
         />
-        <Button variant="contained" color="primary" type="submit">
-          Thêm
+        <Button variant="contained" color="primary" type="submit" startIcon={<AddCircleOutline />} sx={{ py: '9px', px: 2.5, whiteSpace: 'nowrap' }}>
+          Thêm mới
         </Button>
       </Box>
 
-      {/* Bảng danh sách */}
-      <Paper>
-        <Table>
-          <TableHead>
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Table sx={{ minWidth: 650 }}>
+          <TableHead sx={{ backgroundColor: 'grey.100' }}>
             <TableRow>
-              <TableCell>Tên danh mục xe</TableCell>
-              <TableCell align="right">Hành động</TableCell>
+              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Tên danh mục xe</TableCell>
+              <TableCell align="right" sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Hành động</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {cateCars.map((c) => (
-              <TableRow key={c._id}>
-                <TableCell>
+              <TableRow key={c._id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                <TableCell sx={{ py: 1, px: 2 }}>
                   {editingId === c._id ? (
                     <TextField
                       name="name"
@@ -146,37 +141,51 @@ function CateCarManager() {
                       size="small"
                       fullWidth
                       required
+                      autoFocus
+                      variant="standard"
+                      sx={{ input: { py: 0.5 } }}
                     />
                   ) : (
                     c.name
                   )}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" sx={{ py: 1, px: 2 }}>
                   {editingId === c._id ? (
-                    <>
-                      <IconButton color="primary" onClick={handleUpdate}>
-                        <Save />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5}}>
+                      <IconButton color="success" onClick={handleUpdate} size="small" title="Lưu">
+                        <Save fontSize="small"/>
                       </IconButton>
                       <IconButton
-                        color="secondary"
-                        onClick={() => setEditingId(null)}
+                        color="inherit"
+                        onClick={handleCancelEdit}
+                        size="small" 
+                        title="Huỷ"
                       >
-                        <Cancel />
+                        <Cancel fontSize="small"/>
                       </IconButton>
-                    </>
+                    </Box>
                   ) : (
-                    <>
-                      <IconButton color="primary" onClick={() => handleEdit(c)}>
-                        <Edit />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5}}>
+                      <IconButton color="primary" onClick={() => handleEdit(c)} size="small" title="Chỉnh sửa">
+                        <Edit fontSize="small"/>
                       </IconButton>
-                      <IconButton color="error" onClick={() => handleDelete(c._id)}>
-                        <Delete />
+                      <IconButton color="error" onClick={() => handleDelete(c._id)} size="small" title="Xoá">
+                        <Delete fontSize="small"/>
                       </IconButton>
-                    </>
+                    </Box>
                   )}
                 </TableCell>
               </TableRow>
             ))}
+            {cateCars.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Chưa có danh mục xe nào. Vui lòng thêm mới.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Paper>

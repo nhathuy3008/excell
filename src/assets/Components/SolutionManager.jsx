@@ -18,14 +18,17 @@ import {
   TableRow,
   Paper,
   IconButton,
+  Alert // Added Alert for feedback
 } from "@mui/material";
-import { Edit, Delete, Save, Cancel } from "@mui/icons-material";
+import { Edit, Delete, Save, Cancel, AddCircleOutline, Search } from "@mui/icons-material"; // Added icons
 
 function SolutionManager() {
   const [solutions, setSolutions] = useState([]);
-  const [input, setInput] = useState(""); // Gộp input tìm kiếm + thêm
+  const [searchTerm, setSearchTerm] = useState(""); // For search input
+  const [newName, setNewName] = useState(""); // For add input
   const [editingId, setEditingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({});
+  const [editingForm, setEditingForm] = useState({ name: "" });
+  const [feedback, setFeedback] = useState({ type: '', message: '' }); // For user feedback
 
   useEffect(() => {
     fetchSolutions();
@@ -37,155 +40,196 @@ function SolutionManager() {
       setSolutions(res.data);
     } catch (err) {
       console.error("Lỗi tải giải pháp:", err);
+      setFeedback({ type: 'error', message: 'Không thể tải danh sách giải pháp.' });
     }
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed) return;
+    const trimmedName = newName.trim();
+    if (!trimmedName) {
+      setFeedback({ type: 'warning', message: 'Tên giải pháp không được để trống.' });
+      return;
+    }
 
     const exists = solutions.some(
-      (s) => s.name.toLowerCase() === trimmed.toLowerCase()
+      (s) => s.name.toLowerCase() === trimmedName.toLowerCase()
     );
     if (exists) {
-      alert("Giải pháp đã tồn tại!");
+      setFeedback({ type: 'error', message: 'Giải pháp đã tồn tại!' });
       return;
     }
 
     try {
-      await createSolution({ name: trimmed });
-      setInput("");
+      await createSolution({ name: trimmedName });
+      setNewName("");
       fetchSolutions();
+      setFeedback({ type: 'success', message: 'Thêm giải pháp thành công!' });
     } catch (err) {
       console.error("Lỗi tạo giải pháp:", err);
+      setFeedback({ type: 'error', message: 'Lỗi khi thêm giải pháp.' });
     }
   };
 
   const handleEdit = (solution) => {
     setEditingId(solution._id);
     setEditingForm({ name: solution.name });
+    setFeedback({ type: '', message: '' }); // Clear feedback
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    const trimmed = editingForm.name.trim();
-    if (!trimmed) return;
+    const trimmedName = editingForm.name.trim();
+    if (!trimmedName) {
+      setFeedback({ type: 'warning', message: 'Tên giải pháp không được để trống.' });
+      return;
+    }
 
     try {
-      await updateSolution(editingId, { name: trimmed });
+      await updateSolution(editingId, { name: trimmedName });
       setEditingId(null);
-      setEditingForm({});
+      setEditingForm({ name: "" });
       fetchSolutions();
+      setFeedback({ type: 'success', message: 'Cập nhật giải pháp thành công!' });
     } catch (err) {
       console.error("Lỗi cập nhật giải pháp:", err);
+      setFeedback({ type: 'error', message: 'Lỗi khi cập nhật giải pháp.' });
     }
   };
 
   const handleDelete = async (id) => {
+    // Consider adding a confirmation dialog
     try {
       await deleteSolution(id);
       fetchSolutions();
+      setFeedback({ type: 'success', message: 'Xoá giải pháp thành công!' });
     } catch (err) {
       console.error("Lỗi xoá giải pháp:", err);
+      setFeedback({ type: 'error', message: 'Lỗi khi xoá giải pháp.' });
     }
   };
 
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingForm({ name: "" });
+    setFeedback({ type: '', message: '' });
+  }
+
+  const filteredSolutions = solutions.filter((s) =>
+    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <Box
-      sx={{
-        maxWidth: 600,
-        mx: "auto",
-        mt: 5,
-        p: 3,
-        backgroundColor: "#fff",
-        borderRadius: 2,
-        boxShadow: 3,
-      }}
-    >
-      <Typography variant="h5" gutterBottom>
+    <Box sx={{ maxWidth: 1200, width: '100%', p: 5, backgroundColor: 'background.paper', borderRadius: 3, boxShadow: 3, mt: 8, ml: 30 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4, textAlign: 'center', fontWeight: 'bold', color: 'primary.main' }}>
         Quản lý Giải pháp
       </Typography>
 
-      {/* Gộp ô tìm kiếm + thêm */}
-      <Box
-        component="form"
-        onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 2, mb: 3 }}
-      >
+      {feedback.message && (
+        <Alert severity={feedback.type} sx={{ mb: 2 }} onClose={() => setFeedback({ type: '', message: '' })}>{feedback.message}</Alert>
+      )}
+
+      <Box component="form" onSubmit={handleCreate} sx={{ display: "flex", gap: 1.5, mb: 2, alignItems: 'center' }}>
         <TextField
-          label="Tìm kiếm hoặc thêm giải pháp"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          label="Tên giải pháp mới"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
           variant="outlined"
           fullWidth
+          size="small"
         />
-        <Button variant="contained" color="primary" type="submit">
-          Thêm
+        <Button variant="contained" color="primary" type="submit" startIcon={<AddCircleOutline />} sx={{ py: '9px', px: 2.5, whiteSpace: 'nowrap' }}>
+          Thêm mới
         </Button>
       </Box>
 
-      {/* Bảng danh sách lọc theo input */}
-      <Paper>
-        <Table>
-          <TableHead>
+      <TextField
+        label="Tìm kiếm giải pháp"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        variant="outlined"
+        fullWidth
+        size="small"
+        sx={{ mb: 4 }}
+        InputProps={{
+          startAdornment: (
+            <Search color="action" sx={{ mr: 1 }} />
+          ),
+        }}
+      />
+
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <Table sx={{ minWidth: 650 }}>
+          <TableHead sx={{ backgroundColor: 'grey.100' }}>
             <TableRow>
-              <TableCell>Tên giải pháp</TableCell>
-              <TableCell align="right">Hành động</TableCell>
+              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Tên giải pháp</TableCell>
+              <TableCell align="right" sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Hành động</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {solutions
-              .filter((s) =>
-                s.name.toLowerCase().includes(input.toLowerCase())
-              )
-              .map((s) => (
-                <TableRow key={s._id}>
-                  <TableCell>
-                    {editingId === s._id ? (
-                      <TextField
-                        name="name"
-                        value={editingForm.name}
-                        onChange={(e) =>
-                          setEditingForm({ ...editingForm, name: e.target.value })
-                        }
+            {filteredSolutions.map((s) => (
+              <TableRow key={s._id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                <TableCell sx={{ py: 1, px: 2 }}>
+                  {editingId === s._id ? (
+                    <TextField
+                      name="name"
+                      value={editingForm.name}
+                      onChange={(e) =>
+                        setEditingForm({ ...editingForm, name: e.target.value })
+                      }
+                      size="small"
+                      fullWidth
+                      required
+                      autoFocus
+                      variant="standard"
+                      sx={{ input: { py: 0.5 } }}
+                    />
+                  ) : (
+                    s.name
+                  )}
+                </TableCell>
+                <TableCell align="right" sx={{ py: 1, px: 2 }}>
+                  {editingId === s._id ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                      <IconButton color="success" onClick={handleUpdate} size="small" title="Lưu">
+                        <Save fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        color="inherit"
+                        onClick={handleCancelEdit}
                         size="small"
-                        fullWidth
-                        required
-                      />
-                    ) : (
-                      s.name
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    {editingId === s._id ? (
-                      <>
-                        <IconButton color="primary" onClick={handleUpdate}>
-                          <Save />
-                        </IconButton>
-                        <IconButton
-                          color="secondary"
-                          onClick={() => setEditingId(null)}
-                        >
-                          <Cancel />
-                        </IconButton>
-                      </>
-                    ) : (
-                      <>
-                        <IconButton color="primary" onClick={() => handleEdit(s)}>
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(s._id)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                        title="Huỷ"
+                      >
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                      <IconButton color="primary" onClick={() => handleEdit(s)} size="small" title="Chỉnh sửa">
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDelete(s._id)}
+                        size="small"
+                        title="Xoá"
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {filteredSolutions.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {solutions.length > 0 ? 'Không tìm thấy giải pháp phù hợp.' : 'Chưa có giải pháp nào. Vui lòng thêm mới.'}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Paper>

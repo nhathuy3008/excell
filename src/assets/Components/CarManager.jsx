@@ -7,7 +7,9 @@ import { getProducts } from '../api/productApi';
 import { getSolutions } from '../api/solutionApi';
 import { getStatuses } from '../api/statusApi';
 import exportToExcel from './exportToExcel';
+
 function CarManager() {
+  const [activeTab, setActiveTab] = useState('form');
   const [cars, setCars] = useState([]);
   const [cateCars, setCateCars] = useState([]);
   const [repairContents, setRepairContents] = useState([]);
@@ -16,18 +18,14 @@ function CarManager() {
   const [statuses, setStatuses] = useState([]);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [searchPlate, setSearchPlate] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
-    plateNumber: '',
-    carType: '',
-    repairContents: [], // mảng các repairContent id với product mặc định là rỗng mảng
-  });
-
-  const [editingId, setEditingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({
     plateNumber: '',
     carType: '',
     repairContents: [],
   });
+  const [expandedCarIds, setExpandedCarIds] = useState([]);
+
   const calculateTotalAfterTax = (price, tax, quantity) => {
     const p = parseFloat(price || 0);
     const t = parseFloat(tax || 0);
@@ -56,9 +54,6 @@ function CarManager() {
     return total;
   };
 
-
-
-
   useEffect(() => {
     const fetchRepairContents = async () => {
       const res = await getRepairContents();
@@ -66,7 +61,6 @@ function CarManager() {
     };
     fetchRepairContents();
   }, []);
-  // Load dữ liệu liên quan và danh sách xe
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -85,14 +79,13 @@ function CarManager() {
       setCateCars(cateCarRes.data);
       setRepairContents(repairContentRes.data);
       setProducts(productRes.data);
-      setStatuses(statusRes.data);       // ✅ Gán status
-      setSolutions(solutionRes.data);    // ✅ Gán solution
+      setStatuses(statusRes.data);
+      setSolutions(solutionRes.data);
     } catch (error) {
       console.error('Lỗi khi load dữ liệu:', error);
     }
   };
 
-  // Solutions - form thêm
   const addSolutionToProduct = (rcIndex, pIndex) => {
     const newRepairContents = [...form.repairContents];
     if (!newRepairContents[rcIndex].products[pIndex].solutions) {
@@ -116,29 +109,27 @@ function CarManager() {
   const calculateServiceAfterTax = (price, taxPercent = 8) => {
     return price ? price * (1 + taxPercent / 100) : 0;
   };
-  // Solutions - form sửa
   const addEditingSolutionToProduct = (rcIndex, pIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     if (!newRepairContents[rcIndex].products[pIndex].solutions) {
       newRepairContents[rcIndex].products[pIndex].solutions = [];
     }
     newRepairContents[rcIndex].products[pIndex].solutions.push('');
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
   const handleEditingSolutionChange = (rcIndex, pIndex, sIndex, value) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     newRepairContents[rcIndex].products[pIndex].solutions[sIndex] = value;
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
   const removeEditingSolutionFromProduct = (rcIndex, pIndex, sIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     newRepairContents[rcIndex].products[pIndex].solutions.splice(sIndex, 1);
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
-  // Statuses - form thêm
   const addStatusToProduct = (rcIndex, pIndex) => {
     const newRepairContents = [...form.repairContents];
     if (!newRepairContents[rcIndex].products[pIndex].statuses) {
@@ -160,35 +151,32 @@ function CarManager() {
     setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
-  // Statuses - form sửa
   const addEditingStatusToProduct = (rcIndex, pIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     if (!newRepairContents[rcIndex].products[pIndex].statuses) {
       newRepairContents[rcIndex].products[pIndex].statuses = [];
     }
     newRepairContents[rcIndex].products[pIndex].statuses.push('');
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
   const handleEditingStatusChange = (rcIndex, pIndex, sIndex, value) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     newRepairContents[rcIndex].products[pIndex].statuses[sIndex] = value;
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
   const removeEditingStatusFromProduct = (rcIndex, pIndex, sIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
+    const newRepairContents = [...form.repairContents];
     newRepairContents[rcIndex].products[pIndex].statuses.splice(sIndex, 1);
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
+    setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
-  // Xử lý form thêm
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // Thêm repairContent vào form với products rỗng
   const addRepairContent = () => {
     setForm(prev => ({
       ...prev,
@@ -196,13 +184,6 @@ function CarManager() {
     }));
   };
 
-  // Chọn repairContent trong form thêm
-  // const handleRepairContentChange = (index, value) => {
-  //   const newRepairContents = [...form.repairContents];
-  //   newRepairContents[index].repairContent = value;
-  //   newRepairContents[index].products = []; // reset products khi đổi repairContent
-  //   setForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  // };
   const handleRepairContentChange = (index, value) => {
     const selected = repairContents.find(r => r._id === value);
     const newRepairContents = [...form.repairContents];
@@ -216,17 +197,15 @@ function CarManager() {
 
     setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
-  // Nếu dùng chung hàm này, bạn có thể thêm tham số thứ 3 là "isEditing"
   const handleServicePriceChange = (rcIndex, value, isEditing = false) => {
-    // value có thể là string từ input, nên parseFloat nếu cần
     const parsedValue = value === '' ? '' : Number(value);
     if (isEditing) {
-      const updated = [...editingForm.repairContents];
+      const updated = [...form.repairContents];
       updated[rcIndex] = {
         ...updated[rcIndex],
         servicePrice: parsedValue,
       };
-      setEditingForm(prev => ({ ...prev, repairContents: updated }));
+      setForm(prev => ({ ...prev, repairContents: updated }));
     } else {
       const updated = [...form.repairContents];
       updated[rcIndex] = {
@@ -237,26 +216,18 @@ function CarManager() {
     }
   };
 
-
-
-  // Thêm product vào repairContent ở form thêm
   const addProductToRepairContent = (rcIndex) => {
     const newRepairContents = [...form.repairContents];
-    // Thêm product mới với product rỗng (chưa chọn)
     newRepairContents[rcIndex].products.push({ product: '', quantity: 1, statuses: [], solutions: [] });
     setForm(prev => ({ ...prev, repairContents: newRepairContents }));
-    // Không thêm id vì chưa chọn product
   };
 
-
-  // Chọn product hoặc quantity trong form thêm
   const handleProductChange = (rcIndex, pIndex, field, value) => {
     const newRepairContents = [...form.repairContents];
     newRepairContents[rcIndex].products[pIndex][field] = value;
     setForm(prev => ({ ...prev, repairContents: newRepairContents }));
 
     if (field === 'product') {
-      // Cập nhật mảng selectedProductIds theo sản phẩm mới được chọn
       const productId = value;
       setSelectedProductIds(prevIds => {
         // Loại bỏ id cũ nếu có (trường hợp sửa đổi product)
@@ -273,7 +244,6 @@ function CarManager() {
     }
   };
 
-
   // Xóa product khỏi repairContent
   const removeProduct = (rcIndex, pIndex) => {
     const newRepairContents = [...form.repairContents];
@@ -286,7 +256,6 @@ function CarManager() {
     }
   };
 
-
   // Xóa repairContent khỏi form
   const removeRepairContent = (rcIndex) => {
     const newRepairContents = [...form.repairContents];
@@ -294,31 +263,40 @@ function CarManager() {
     setForm(prev => ({ ...prev, repairContents: newRepairContents }));
   };
 
-  // Gửi form thêm
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createCar(form);
-      setForm({
-        plateNumber: '',
-        carType: '',
-        repairContents: [],
-      });
+      if (isEditing) {
+        await updateCar(form._id, form);
+      } else {
+        await createCar(form);
+      }
+      resetForm();
       fetchAllData();
+      setActiveTab('list');
     } catch (error) {
-      console.error('Lỗi tạo xe:', error);
+      console.error('Lỗi:', error);
     }
   };
 
-  // Sửa xe - set form sửa
+  const resetForm = () => {
+    setForm({
+      plateNumber: '',
+      carType: '',
+      repairContents: [],
+    });
+    setIsEditing(false);
+  };
+
   const handleEdit = (car) => {
-    setEditingId(car._id);
-    setEditingForm({
+    setIsEditing(true);
+    setForm({
+      _id: car._id,
       plateNumber: car.plateNumber,
       carType: car.carType._id,
       repairContents: car.repairContents.map(rc => ({
         repairContent: rc.repairContent,
-        servicePrice: rc.servicePrice ?? '',  // <-- thêm dòng này
+        servicePrice: rc.servicePrice ?? '',
         products: rc.products.map(p => ({
           product: p.product._id,
           quantity: p.quantity,
@@ -327,703 +305,845 @@ function CarManager() {
         }))
       })),
     });
-
+    setActiveTab('form');
   };
 
-
-
-  // Các hàm tương tự cho form sửa
-  const handleEditingFormChange = (e) => {
-    const { name, value } = e.target;
-    setEditingForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const addEditingRepairContent = () => {
-    setEditingForm(prev => ({
-      ...prev,
-      repairContents: [...prev.repairContents, { repairContent: '', products: [] }]
-    }));
-  };
-
-  const handleEditingRepairContentChange = (index, value) => {
-    const newRepairContents = [...editingForm.repairContents];
-    newRepairContents[index].repairContent = value;
-    newRepairContents[index].products = [];
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  };
-
-  const addEditingProductToRepairContent = (rcIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
-    newRepairContents[rcIndex].products.push({ product: '', quantity: 1, statuses: [], solutions: [] });
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  };
-
-  const handleEditingProductChange = (rcIndex, pIndex, field, value) => {
-    const newRepairContents = [...editingForm.repairContents];
-    newRepairContents[rcIndex].products[pIndex][field] = value;
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  };
-
-  const removeEditingProduct = (rcIndex, pIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
-    newRepairContents[rcIndex].products.splice(pIndex, 1);
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  };
-
-  const removeEditingRepairContent = (rcIndex) => {
-    const newRepairContents = [...editingForm.repairContents];
-    newRepairContents.splice(rcIndex, 1);
-    setEditingForm(prev => ({ ...prev, repairContents: newRepairContents }));
-  };
-
-  // Gửi form sửa
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    try {
-      await updateCar(editingId, editingForm);
-      setEditingId(null);
-      setEditingForm({
-        plateNumber: '',
-        carType: '',
-        repairContents: [],
-      });
-      fetchAllData();
-    } catch (error) {
-      console.error('Lỗi cập nhật xe:', error);
-    }
-  };
-
-  // Xóa xe
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc muốn xoá xe này?')) return;
-    try {
-      await deleteCar(id);
-      fetchAllData();
-    } catch (error) {
-      console.error('Lỗi xoá xe:', error);
-    }
+  const toggleCarExpand = (carId) => {
+    setExpandedCarIds(prev =>
+      prev.includes(carId) ? prev.filter(id => id !== carId) : [...prev, carId]
+    );
   };
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      overflow: 'auto',
-      backgroundColor: '#f9f9f9',
-      padding: 70,
-      boxSizing: 'border-box'
-    }}>
-      <h2>Quản lý Xe</h2>
-
-      {/* Form thêm xe */}
-      <form onSubmit={handleCreate} style={{
-        padding: 20,
-        border: '1px solid #ccc',
-        borderRadius: 8,
-        maxWidth: 800,
-        margin: '0 auto',
-        background: '#f9f9f9'
-      }}>
-        <h2 style={{ marginBottom: 20 }}>🛠️ Thêm xe mới</h2>
-
-        {/* Biển số */}
-        <div style={{ marginBottom: 16 }}>
-          <label><strong>Biển số:</strong></label><br />
+    <div className="car-manager">
+      <div className="header">
+        <h2>Quản lý Xe</h2>
+        <div className="actions">
           <input
-            name="plateNumber"
-            value={form.plateNumber}
-            onChange={handleFormChange}
-            required
-            placeholder="VD: 51A-12345"
-            style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
+            type="text"
+            placeholder="🔍 Tìm theo biển số..."
+            value={searchPlate}
+            onChange={(e) => {
+              setSearchPlate(e.target.value);
+              if (activeTab !== 'list') setActiveTab('list');
+            }}
+            className="search-input"
           />
-        </div>
-
-        {/* Loại xe */}
-        <div style={{ marginBottom: 16 }}>
-          <label><strong>Loại xe:</strong></label><br />
-          <select
-            name="carType"
-            value={form.carType}
-            onChange={handleFormChange}
-            required
-            style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
+          <button
+            onClick={() => {
+              const filteredCars = cars.filter(car =>
+                car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
+              );
+              const carsToExport = searchPlate.trim() ? filteredCars : cars;
+              exportToExcel(carsToExport, repairContents, products);
+            }}
+            className="export-btn"
           >
-            <option value="">-- Chọn loại xe --</option>
-            {cateCars.map(c => (
-              <option key={c._id} value={c._id}>{c.name}</option>
-            ))}
-          </select>
+            📥 Xuất Excel
+          </button>
         </div>
+      </div>
 
-        {/* Nội dung sửa chữa */}
-        <div>
-          <label><strong>Nội dung sửa chữa:</strong></label>
-          {form.repairContents.map((rc, rcIndex) => {
-            const selectedRepairContent = repairContents.find(r => r._id === rc.repairContent);
-            const isCong = selectedRepairContent?.name?.toLowerCase() === 'công';
+      <div className="tabs">
+        <button 
+          className={`tab-button ${activeTab === 'form' ? 'active' : ''}`}
+          onClick={() => setActiveTab('form')}
+        >
+          {isEditing ? '🛠️ Sửa xe' : '🛠️ Thêm xe mới'}
+        </button>
+        <button 
+          className={`tab-button ${activeTab === 'list' ? 'active' : ''}`}
+          onClick={() => setActiveTab('list')}
+        >
+          📋 Danh sách xe
+        </button>
+      </div>
 
-            return (
-              <div key={rcIndex} style={{ border: '1px solid #ddd', borderRadius: 4, padding: 12, marginBottom: 12, background: '#fff' }}>
-                {/* Chọn nội dung sửa chữa */}
-                <Select
-                  value={repairContents.find(r => r._id === rc.repairContent) || null}
-                  onChange={selected => handleRepairContentChange(rcIndex, selected?._id || '')}
-                  options={repairContents}
-                  getOptionLabel={option => option.name}
-                  getOptionValue={option => option._id}
-                  placeholder="-- Chọn nội dung sửa chữa --"
-                  isClearable
-                  styles={{ container: base => ({ ...base, marginBottom: 8 }) }}
-                />
+      <div className="tab-content">
+        {activeTab === 'form' && (
+          <form onSubmit={handleSubmit} className="car-form">
+            <div className="form-header">
+              <h3>{isEditing ? '🛠️ Sửa xe' : '🛠️ Thêm xe mới'}</h3>
+              {isEditing && (
+                <button type="button" onClick={resetForm} className="cancel-btn">
+                  Huỷ
+                </button>
+              )}
+            </div>
 
-                {/* Nếu là "Công" thì chỉ hiển thị ô nhập tiền */}
-                {isCong ? (
-                  <div style={{ marginTop: 10 }}>
-                    <label><strong>Tiền công:</strong></label>
-                    <input
-                      type="text"
-                      value={rc.servicePrice !== undefined && rc.servicePrice !== null
-                        ? rc.servicePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-                        : ''
-                      }
-                      onChange={e => {
-                        const rawValue = e.target.value;
-                        const numericValue = rawValue.replace(/\./g, '');
-                        if (/^\d*$/.test(numericValue)) {
-                          handleServicePriceChange(rcIndex, numericValue === '' ? 0 : Number(numericValue));
-                        }
-                      }}
-                      required
-                      placeholder="Nhập tiền công"
-                      style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
+            <div className="form-group">
+              <label>Biển số:</label>
+              <input
+                name="plateNumber"
+                value={form.plateNumber}
+                onChange={handleFormChange}
+                required
+                placeholder="VD: 51A-12345"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Loại xe:</label>
+              <select
+                name="carType"
+                value={form.carType}
+                onChange={handleFormChange}
+                required
+              >
+                <option value="">-- Chọn loại xe --</option>
+                {cateCars.map(c => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="repair-contents">
+              <label>Nội dung sửa chữa:</label>
+              {form.repairContents.map((rc, rcIndex) => {
+                const selectedRepairContent = repairContents.find(r => r._id === rc.repairContent);
+                const isCong = selectedRepairContent?.name?.toLowerCase() === 'công';
+
+                return (
+                  <div key={rcIndex} className="repair-content-item">
+                    <Select
+                      value={repairContents.find(r => r._id === rc.repairContent) || null}
+                      onChange={selected => handleRepairContentChange(rcIndex, selected?._id || '')}
+                      options={repairContents}
+                      getOptionLabel={option => option.name}
+                      getOptionValue={option => option._id}
+                      placeholder="-- Chọn nội dung sửa chữa --"
+                      isClearable
                     />
-                    {rc.servicePrice ? (
-                      <div style={{ marginTop: 8 }}>
-                        <p>Thuế (8%): <strong>{(rc.servicePrice * 0.08).toLocaleString('vi-VN')} đ</strong></p>
-                        <p>Tổng tiền sau thuế: <strong>{(rc.servicePrice * 1.08).toLocaleString('vi-VN')} đ</strong></p>
+
+                    {isCong ? (
+                      <div className="service-price">
+                        <label>Tiền công:</label>
+                        <input
+                          type="text"
+                          value={rc.servicePrice !== undefined && rc.servicePrice !== null
+                            ? rc.servicePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+                            : ''
+                          }
+                          onChange={e => {
+                            const rawValue = e.target.value;
+                            const numericValue = rawValue.replace(/\./g, '');
+                            if (/^\d*$/.test(numericValue)) {
+                              handleServicePriceChange(rcIndex, numericValue === '' ? 0 : Number(numericValue));
+                            }
+                          }}
+                          required
+                          placeholder="Nhập tiền công"
+                        />
+                        {rc.servicePrice && (
+                          <div className="price-details">
+                            <p>Thuế (8%): <strong>{(rc.servicePrice * 0.08).toLocaleString('vi-VN')} đ</strong></p>
+                            <p>Tổng tiền sau thuế: <strong>{(rc.servicePrice * 1.08).toLocaleString('vi-VN')} đ</strong></p>
+                          </div>
+                        )}
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="products-list">
+                        {rc.products.map((p, pIndex) => (
+                          <div key={pIndex} className="product-item">
+                            <div className="product-header">
+                              <Select
+                                value={products.find(prod => prod._id === p.product) || null}
+                                onChange={selected => handleProductChange(rcIndex, pIndex, 'product', selected?._id || '')}
+                                options={products}
+                                getOptionLabel={option => option.code}
+                                getOptionValue={option => option._id}
+                                placeholder="-- Chọn sản phẩm --"
+                                isClearable
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={p.quantity}
+                                onChange={e => handleProductChange(rcIndex, pIndex, 'quantity', +e.target.value)}
+                                required
+                              />
+                              <button type="button" onClick={() => removeProduct(rcIndex, pIndex)} className="remove-btn">
+                                ❌
+                              </button>
+                            </div>
+
+                            <div className="product-details">
+                              <div className="statuses">
+                                {p.statuses?.map((stt, stIndex) => (
+                                  <div key={stIndex} className="status-item">
+                                    <Select
+                                      value={statuses.find(opt => opt._id === stt) || null}
+                                      onChange={selected => handleStatusChange(rcIndex, pIndex, stIndex, selected?._id || '')}
+                                      options={statuses}
+                                      getOptionLabel={opt => opt.name}
+                                      getOptionValue={opt => opt._id}
+                                      placeholder="-- Chọn trạng thái --"
+                                      isClearable
+                                    />
+                                    <button type="button" onClick={() => removeStatusFromProduct(rcIndex, pIndex, stIndex)} className="remove-btn">
+                                      ❌
+                                    </button>
+                                  </div>
+                                ))}
+                                <button type="button" onClick={() => addStatusToProduct(rcIndex, pIndex)} className="add-btn">
+                                  ⊕ Trạng thái
+                                </button>
+                              </div>
+
+                              <div className="solutions">
+                                {p.solutions?.map((sol, sIndex) => (
+                                  <div key={sIndex} className="solution-item">
+                                    <Select
+                                      value={solutions.find(opt => opt._id === sol) || null}
+                                      onChange={selected => handleSolutionChange(rcIndex, pIndex, sIndex, selected?._id || '')}
+                                      options={solutions}
+                                      getOptionLabel={opt => opt.name}
+                                      getOptionValue={opt => opt._id}
+                                      placeholder="-- Chọn giải pháp --"
+                                      isClearable
+                                    />
+                                    <button type="button" onClick={() => removeSolutionFromProduct(rcIndex, pIndex, sIndex)} className="remove-btn">
+                                      ❌
+                                    </button>
+                                  </div>
+                                ))}
+                                <button type="button" onClick={() => addSolutionToProduct(rcIndex, pIndex)} className="add-btn">
+                                  🧩 Giải pháp
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => addProductToRepairContent(rcIndex)} className="add-btn">
+                          🆕 Thêm sản phẩm
+                        </button>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => removeRepairContent(rcIndex)} className="remove-btn">
+                      ❌ Xoá nội dung sửa chữa
+                    </button>
                   </div>
-                ) : (
+                );
+              })}
+              <button type="button" onClick={addRepairContent} className="add-btn">
+                ➕ Thêm nội dung sửa chữa
+              </button>
+            </div>
 
-                  <>
-                    {/* Danh sách sản phẩm */}
-                    {rc.products.map((p, pIndex) => (
-                      <div key={pIndex} style={{ marginBottom: 10, padding: 10, background: '#f1f1f1', borderRadius: 4 }}>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                          <Select
-                            value={products.find(prod => prod._id === p.product) || null}
-                            onChange={selected => handleProductChange(rcIndex, pIndex, 'product', selected?._id || '')}
-                            options={products}
-                            getOptionLabel={option => option.code}
-                            getOptionValue={option => option._id}
-                            placeholder="-- Chọn sản phẩm --"
-                            isClearable
-                            styles={{ container: base => ({ ...base, flex: 1 }) }}
-                          />
-                          <input
-                            type="number"
-                            min={1}
-                            value={p.quantity}
-                            onChange={e => handleProductChange(rcIndex, pIndex, 'quantity', +e.target.value)}
-                            style={{ width: 80, padding: 8 }}
-                            required
-                          />
-                          <button type="button" onClick={() => removeProduct(rcIndex, pIndex)}>❌</button>
-                        </div>
+            <button type="submit" className="submit-btn">
+              {isEditing ? '✅ Cập nhật xe' : '✅ Thêm xe'}
+            </button>
+          </form>
+        )}
 
-                        {/* Trạng thái */}
-                        <div>
-                          {p.statuses?.map((stt, stIndex) => (
-                            <div key={stIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                              <Select
-                                value={statuses.find(opt => opt._id === stt) || null}
-                                onChange={selected => handleStatusChange(rcIndex, pIndex, stIndex, selected?._id || '')}
-                                options={statuses}
-                                getOptionLabel={opt => opt.name}
-                                getOptionValue={opt => opt._id}
-                                placeholder="-- Chọn trạng thái --"
-                                isClearable
-                                styles={{ container: base => ({ ...base, flex: 1 }) }}
-                              />
-
-                              <button type="button" onClick={() => removeStatusFromProduct(rcIndex, pIndex, stIndex)}>❌</button>
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addStatusToProduct(rcIndex, pIndex)}>⊕ Trạng thái</button>
-                        </div>
-
-                        {/* Giải pháp */}
-                        <div style={{ marginTop: 8 }}>
-                          {p.solutions?.map((sol, sIndex) => (
-                            <div key={sIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                              <Select
-                                value={solutions.find(opt => opt._id === sol) || null}
-                                onChange={selected => handleSolutionChange(rcIndex, pIndex, sIndex, selected?._id || '')}
-                                options={solutions}
-                                getOptionLabel={opt => opt.name}
-                                getOptionValue={opt => opt._id}
-                                placeholder="-- Chọn giải pháp --"
-                                isClearable
-                                styles={{ container: base => ({ ...base, flex: 1 }) }}
-                              />
-
-                              <button type="button" onClick={() => removeSolutionFromProduct(rcIndex, pIndex, sIndex)}>❌</button>
-                            </div>
-                          ))}
-                          <button type="button" onClick={() => addSolutionToProduct(rcIndex, pIndex)}>🧩 Giải pháp</button>
-                        </div>
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => addProductToRepairContent(rcIndex)} style={{ marginBottom: 8 }}>🆕 Thêm sản phẩm</button><br />
-                  </>
-                )}
-                <button type="button" onClick={() => removeRepairContent(rcIndex)}>❌ Xoá nội dung sửa chữa</button>
-              </div>
-            );
-          })}
-          <button type="button" onClick={addRepairContent} style={{ marginTop: 8 }}>➕ Thêm nội dung sửa chữa</button>
-        </div>
-
-        <button type="submit" style={{
-          marginTop: 20,
-          padding: '10px 20px',
-          background: '#4caf50',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 4,
-          fontSize: 16
-        }}>
-          ✅ Thêm xe
-        </button>
-      </form>
-      <div style={{ marginBottom: '16px' }}>
-        <button
-          onClick={() => {
-            const filteredCars = cars.filter(car =>
-              car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
-            );
-            const carsToExport = searchPlate.trim() ? filteredCars : cars;
-            exportToExcel(carsToExport, repairContents, products);
-          }}
-          style={{
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: 4,
-            cursor: 'pointer'
-          }}
-        >
-          📥 Xuất Excel
-        </button>
-      </div>
-
-      {/* Ô tìm kiếm biển số */}
-      <div style={{ marginBottom: '16px' }}>
-        <input
-          type="text"
-          placeholder="🔍 Tìm theo biển số..."
-          value={searchPlate}
-          onChange={(e) => setSearchPlate(e.target.value)}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 4,
-            border: '1px solid #ccc',
-            width: '250px',
-            marginRight: '12px'
-          }}
-        />
-      </div>
-
-
-      {/* Danh sách xe */}
-      <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-        <h3>Danh sách xe</h3>
-        <table
-          border="1"
-          cellPadding="12"
-          cellSpacing="0"
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            tableLayout: 'auto',
-            fontSize: '14px',
-          }}
-        >
-          <thead>
-            <tr>
-              <th colSpan={2}>Sản phẩm</th>
-              <th>Đơn vị</th>
-              <th>Thuế</th>
-              <th>Số lượng</th>
-              <th>Giá</th>
-              <th>Tiền sau thuế</th>
-              <th>Giải pháp</th>
-              <th>Trạng thái</th>
-              <th>Hành động</th>
-            </tr>
-          </thead>
-          <tbody>
+        {activeTab === 'list' && (
+          <div className="cars-list">
+            <h3>Danh sách xe</h3>
             {cars
               .filter(car =>
                 car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
               )
               .map(car => {
-                const totalRowsForCar = car.repairContents?.reduce((acc, rc) => {
-                  const validProducts = (rc.products || []).filter(p => {
-                    const productDetail = products.find(prod => prod._id === (p.product._id || p.product));
-                    return productDetail;
-                  });
-                  const isServiceOnly = (!validProducts.length && rc.servicePrice);
-                  return acc + 1 + (validProducts.length || isServiceOnly ? 1 : 0);
-                }, 0) || 0;
-
+                const isExpanded = expandedCarIds.includes(car._id);
                 return (
-                  <React.Fragment key={car._id}>
-                    <tr style={{ backgroundColor: "#eee" }}>
-                      <td colSpan={9}>
+                  <div key={car._id} className="car-box">
+                    <div className="car-box-header">
+                      <div className="car-box-title" onClick={() => toggleCarExpand(car._id)} style={{cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem'}}>
+                        <span style={{marginRight: 12}}>{isExpanded ? '▼' : '▶'}</span>
                         <b>Biển số:</b> {car.plateNumber} | <b>Loại xe:</b> {car.carType?.name || ''}
-                      </td>
-                      {totalRowsForCar > 0 && (
-                        <td rowSpan={totalRowsForCar + 1} style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <button
-                              onClick={() => handleEdit(car)}
-                              style={{
-                                backgroundColor: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Sửa
-                            </button>
-                            <button
-                              onClick={() => handleDelete(car._id)}
-                              style={{
-                                backgroundColor: '#dc3545',
-                                color: 'white',
-                                border: 'none',
-                                padding: '6px 12px',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Xoá
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-
-                    {car.repairContents?.map((rc, rcIndex) => {
-                      const selectedRepairContent = repairContents.find(
-                        item => item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
-                      );
-                      const rcProducts = rc.products || [];
-
-                      const validProducts = rcProducts.filter(p => {
-                        const productDetail = products.find(prod => prod._id === (p.product._id || p.product));
-                        return productDetail;
-                      });
-
-                      const isServiceOnly = !validProducts.length && rc.servicePrice;
-
-                      return (
-                        <React.Fragment key={`${car._id}-rc-${rcIndex}`}>
-                          <tr style={{ backgroundColor: '#f9f9f9' }}>
-                            <td colSpan={9}>
-                              <b>Nội dung sửa chữa:</b> {selectedRepairContent?.name || rc.name || 'Không có tên'}
-                            </td>
-                          </tr>
-
-                          {validProducts.length > 0 ? (
-                            validProducts.map((p, index) => {
-                              const productDetail = products.find(prod => prod._id === (p.product._id || p.product));
-                              if (!productDetail) return null;
-
-                              return (
-                                <tr key={`${car._id}-rc-${rcIndex}-p-${index}`}>
-                                  <td colSpan={2} style={{ wordBreak: 'break-word' }}>
-                                    <div style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
-                                      <p style={{ margin: '4px 0' }}>Mã: {productDetail.code}</p>
-                                      <p style={{ margin: '4px 0' }}>Thương hiệu: {productDetail.brand || "N/A"}</p>
-                                      <p style={{ margin: '4px 0' }}>Xuất xứ: {productDetail.origin || "N/A"}</p>
-                                      <p style={{ margin: '4px 0' }}>Thông số:</p>
-                                      <ul style={{ paddingLeft: 16, marginTop: 0 }}>
-                                        {productDetail.specs?.length
-                                          ? productDetail.specs.map((spec, i) => (
-                                            <li key={i} style={{ listStyleType: 'disc', marginLeft: 8 }}>{spec}</li>
-                                          ))
-                                          : <li>N/A</li>}
-                                      </ul>
-                                    </div>
-                                  </td>
-                                  <td>{productDetail.unit?.name || "N/A"}</td>
-                                  <td>{productDetail.tax || "0"}%</td>
-                                  <td>{p.quantity || 1}</td>
-                                  <td>{productDetail.price?.toLocaleString() || "0"}đ</td>
-                                  <td>{calculateTotalAfterTax(productDetail.price, productDetail.tax, p.quantity).toLocaleString()}đ</td>
-                                  <td>
-                                    {p.solutions?.length > 0 ? (
-                                      p.solutions.map((sol, idx) => (
-                                        <div key={idx}><b>{sol?.name || 'Không rõ giải pháp'}</b></div>
-                                      ))
-                                    ) : <b>Chưa có giải pháp</b>}
-                                  </td>
-                                  <td>
-                                    {p.statuses?.length > 0 ? (
-                                      p.statuses.map((status, idx) => (
-                                        <div key={idx}><b>{status?.name || 'Không rõ trạng thái'}</b></div>
-                                      ))
-                                    ) : <b>Chưa cập nhật</b>}
-                                  </td>
-                                </tr>
+                      </div>
+                      <div className="car-box-actions">
+                        <button
+                          onClick={() => handleEdit(car)}
+                          style={{
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            marginRight: 8
+                          }}
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => handleDelete(car._id)}
+                          style={{
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Xoá
+                        </button>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="car-box-detail">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th colSpan={2}>Sản phẩm</th>
+                              <th>Đơn vị</th>
+                              <th>Thuế</th>
+                              <th>Số lượng</th>
+                              <th>Giá</th>
+                              <th>Tiền sau thuế</th>
+                              <th>Giải pháp</th>
+                              <th>Trạng thái</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {car.repairContents?.map((rc, rcIndex) => {
+                              const selectedRepairContent = repairContents.find(
+                                item => item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
                               );
-                            })
-                          ) : isServiceOnly ? (
-                            <tr>
-                              <td colSpan={2}><b>Dịch vụ công</b></td>
-                              <td>công</td>
-                              <td>8%</td>
-                              <td>1</td>
-                              <td>{rc.servicePrice?.toLocaleString() || "0"}đ</td>
-                              <td>{calculateServiceAfterTax(rc.servicePrice).toLocaleString()}đ</td>
-                              <td><b>{rc.solutions?.map(sol => sol.name).join(', ')}</b></td>
-                              <td><b>{rc.statuses?.map(st => st.name).join(', ')}</b></td>
+                              const rcProducts = rc.products || [];
+                              const validProducts = rcProducts.filter(p => {
+                                const productDetail = products.find(prod => prod._id === (p.product._id || p.product));
+                                return productDetail;
+                              });
+                              const isServiceOnly = !validProducts.length && rc.servicePrice;
+                              return (
+                                <React.Fragment key={`${car._id}-rc-${rcIndex}`}>
+                                  <tr style={{ backgroundColor: '#f9f9f9' }}>
+                                    <td colSpan={9}>
+                                      <b>Nội dung sửa chữa:</b> {selectedRepairContent?.name || rc.name || 'Không có tên'}
+                                    </td>
+                                  </tr>
+                                  {validProducts.length > 0 ? (
+                                    validProducts.map((p, index) => {
+                                      const productDetail = products.find(prod => prod._id === (p.product._id || p.product));
+                                      if (!productDetail) return null;
+                                      return (
+                                        <tr key={`${car._id}-rc-${rcIndex}-p-${index}`}>
+                                          <td colSpan={2} style={{ wordBreak: 'break-word' }}>
+                                            <div style={{ marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 8 }}>
+                                              <p style={{ margin: '4px 0' }}>Mã: {productDetail.code}</p>
+                                              <p style={{ margin: '4px 0' }}>Thương hiệu: {productDetail.brand || "N/A"}</p>
+                                              <p style={{ margin: '4px 0' }}>Xuất xứ: {productDetail.origin || "N/A"}</p>
+                                              <p style={{ margin: '4px 0' }}>Thông số:</p>
+                                              <ul style={{ paddingLeft: 16, marginTop: 0 }}>
+                                                {productDetail.specs?.length
+                                                  ? productDetail.specs.map((spec, i) => (
+                                                    <li key={i} style={{ listStyleType: 'disc', marginLeft: 8 }}>{spec}</li>
+                                                  ))
+                                                  : <li>N/A</li>}
+                                              </ul>
+                                            </div>
+                                          </td>
+                                          <td>{productDetail.unit?.name || "N/A"}</td>
+                                          <td>{productDetail.tax || "0"}%</td>
+                                          <td>{p.quantity || 1}</td>
+                                          <td>{productDetail.price?.toLocaleString() || "0"}đ</td>
+                                          <td>{calculateTotalAfterTax(productDetail.price, productDetail.tax, p.quantity).toLocaleString()}đ</td>
+                                          <td>
+                                            {p.solutions?.length > 0 ? (
+                                              p.solutions.map((sol, idx) => (
+                                                <div key={idx}><b>{sol?.name || 'Không rõ giải pháp'}</b></div>
+                                              ))
+                                            ) : <b>Chưa có giải pháp</b>}
+                                          </td>
+                                          <td>
+                                            {p.statuses?.length > 0 ? (
+                                              p.statuses.map((status, idx) => (
+                                                <div key={idx}><b>{status?.name || 'Không rõ trạng thái'}</b></div>
+                                              ))
+                                            ) : <b>Chưa cập nhật</b>}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })
+                                  ) : isServiceOnly ? (
+                                    <tr>
+                                      <td colSpan={2}><b>Dịch vụ công</b></td>
+                                      <td>công</td>
+                                      <td>8%</td>
+                                      <td>1</td>
+                                      <td>{rc.servicePrice?.toLocaleString() || "0"}đ</td>
+                                      <td>{calculateServiceAfterTax(rc.servicePrice).toLocaleString()}đ</td>
+                                      <td><b>{rc.solutions?.map(sol => sol.name).join(', ')}</b></td>
+                                      <td><b>{rc.statuses?.map(st => st.name).join(', ')}</b></td>
+                                    </tr>
+                                  ) : (
+                                    <tr>
+                                      <td colSpan={9} style={{ textAlign: 'center', color: '#888' }}>Không có sản phẩm</td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                            <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
+                              <td colSpan={7} style={{ textAlign: "right" }}>Tổng tiền của xe:</td>
+                              <td colSpan={2} style={{ color: "green" }}>
+                                {calculateCarTotal(car).toLocaleString()} VND
+                              </td>
                             </tr>
-
-                          ) : (
-                            <tr>
-                              <td colSpan={9} style={{ textAlign: 'center', color: '#888' }}>Không có sản phẩm</td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-
-                    <tr style={{ backgroundColor: "#f0f0f0", fontWeight: "bold" }}>
-                      <td colSpan={7} style={{ textAlign: "right" }}>Tổng tiền của xe:</td>
-                      <td colSpan={3} style={{ color: "green" }}>
-                        {calculateCarTotal(car).toLocaleString()} VND
-                      </td>
-                    </tr>
-                  </React.Fragment>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
 
-      {/* Form chỉnh sửa xe */}
-{editingId && (
-  <form onSubmit={handleUpdate} style={{
-    padding: 20,
-    border: '1px solid #ccc',
-    borderRadius: 8,
-    maxWidth: 800,
-    margin: '40px auto 0',
-    background: '#f9f9f9'
-  }}>
-    <h3 style={{ marginBottom: 20 }}>🛠️ Sửa xe</h3>
+      <style jsx>{`
+        .car-manager, .car-manager * {
+          box-sizing: border-box;
+        }
+        .car-manager {
+          padding: 3rem;
+          max-width: 1400px;
+          margin: 0 auto;
+          background-color: #f8f9fa;
+          min-height: 100vh;
+          margin-top: 30px;
+        }
 
-    {/* Biển số */}
-    <div style={{ marginBottom: 16 }}>
-      <label><strong>Biển số:</strong></label><br />
-      <input
-        name="plateNumber"
-        value={editingForm.plateNumber}
-        onChange={handleEditingFormChange}
-        required
-        style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
-      />
-    </div>
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          padding: 1rem;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          width: 1300px;
+        }
 
-    {/* Loại xe */}
-    <div style={{ marginBottom: 16 }}>
-      <label><strong>Loại xe:</strong></label><br />
-      <select
-        name="carType"
-        value={editingForm.carType}
-        onChange={handleEditingFormChange}
-        required
-        style={{ width: '100%', padding: 10, borderRadius: 4, border: '1px solid #ccc' }}
-      >
-        <option value="">-- Chọn loại xe --</option>
-        {cateCars.map(c => (
-          <option key={c._id} value={c._id}>{c.name}</option>
-        ))}
-      </select>
-    </div>
+        .header h2 {
+          color: #2c3e50;
+          margin: 0;
+          font-size: 1.8rem;
+        }
 
-    {/* Nội dung sửa chữa */}
-    <div>
-      <label><strong>Nội dung sửa chữa:</strong></label>
-      {editingForm.repairContents.map((rc, rcIndex) => {
-        const selectedRepairContent = repairContents.find(r => r._id === rc.repairContent);
-        const isCong = selectedRepairContent?.name?.toLowerCase() === 'công';
+        .actions {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+        }
 
-        return (
-          <div key={rcIndex} style={{ border: '1px solid #ddd', borderRadius: 4, padding: 12, marginBottom: 12, background: '#fff' }}>
-            {/* Chọn nội dung sửa chữa với react-select */}
-            <Select
-              value={repairContents.find(r => r._id === rc.repairContent) || null}
-              onChange={selected => handleEditingRepairContentChange(rcIndex, selected?._id || '')}
-              options={repairContents}
-              getOptionLabel={opt => opt.name}
-              getOptionValue={opt => opt._id}
-              placeholder="-- Chọn nội dung sửa chữa --"
-              isClearable
-            />
+        .search-input {
+          padding: 0.75rem 1rem;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          width: 300px;
+          font-size: 0.95rem;
+          transition: all 0.3s ease;
+        }
 
-            {/* Nếu là "Công" thì hiển thị input tiền công */}
-            {isCong ? (
-              <div style={{ marginTop: 10 }}>
-                <label><strong>Tiền công:</strong></label>
-                <input
-                  type="text"
-                  value={rc.servicePrice !== undefined && rc.servicePrice !== null
-                    ? rc.servicePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
-                    : ''
-                  }
-                  onChange={e => {
-                    const rawValue = e.target.value;
-                    const numericValue = rawValue.replace(/\./g, '');
-                    if (/^\d*$/.test(numericValue)) {
-                      handleServicePriceChange(rcIndex, numericValue === '' ? 0 : Number(numericValue), true);
-                    }
-                  }}
-                  required
-                  placeholder="Nhập tiền công"
-                  style={{ width: '100%', padding: 8, borderRadius: 4, border: '1px solid #ccc' }}
-                />
-              </div>
-            ) : (
-              <>
-                {/* Danh sách sản phẩm */}
-                {rc.products.map((p, pIndex) => (
-                  <div key={pIndex} style={{ marginBottom: 10, padding: 10, background: '#f1f1f1', borderRadius: 4 }}>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                      {/* Sản phẩm với react-select */}
-                      <Select
-                        value={products.find(prod => prod._id === p.product) || null}
-                        onChange={selected => handleEditingProductChange(rcIndex, pIndex, 'product', selected?._id || '')}
-                        options={products}
-                        getOptionLabel={opt => opt.code}
-                        getOptionValue={opt => opt._id}
-                        placeholder="-- Chọn sản phẩm --"
-                        isClearable
-                        styles={{ container: base => ({ flex: 1, ...base }) }}
-                      />
+        .search-input:focus {
+          outline: none;
+          border-color: #4a90e2;
+          box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
 
-                      <input
-                        type="number"
-                        min={1}
-                        value={p.quantity}
-                        onChange={e => handleEditingProductChange(rcIndex, pIndex, 'quantity', +e.target.value)}
-                        style={{ width: 80, padding: 8 }}
-                        required
-                      />
-                      <button type="button" onClick={() => removeEditingProduct(rcIndex, pIndex)}>❌</button>
-                    </div>
+        .export-btn {
+          background-color: #28a745;
+          color: white;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+        }
 
-                    {/* Trạng thái */}
-                    <div>
-                      {p.statuses?.map((stt, stIndex) => (
-                        <div key={stIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                          <Select
-                            value={statuses.find(s => s._id === stt) || null}
-                            onChange={selected => handleEditingStatusChange(rcIndex, pIndex, stIndex, selected?._id || '')}
-                            options={statuses}
-                            getOptionLabel={opt => opt.name}
-                            getOptionValue={opt => opt._id}
-                            placeholder="-- Chọn trạng thái --"
-                            isClearable
-                            styles={{ container: base => ({ flex: 1, ...base }) }}
-                          />
-                          <button type="button" onClick={() => removeEditingStatusFromProduct(rcIndex, pIndex, stIndex)}>❌</button>
-                        </div>
-                      ))}
-                      <button type="button" onClick={() => addEditingStatusToProduct(rcIndex, pIndex)}>⊕ Trạng thái</button>
-                    </div>
+        .export-btn:hover {
+          background-color: #218838;
+          transform: translateY(-1px);
+        }
 
-                    {/* Giải pháp */}
-                    <div style={{ marginTop: 8 }}>
-                      {p.solutions?.map((sol, sIndex) => (
-                        <div key={sIndex} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                          <Select
-                            value={solutions.find(s => s._id === sol) || null}
-                            onChange={selected => handleEditingSolutionChange(rcIndex, pIndex, sIndex, selected?._id || '')}
-                            options={solutions}
-                            getOptionLabel={opt => opt.name}
-                            getOptionValue={opt => opt._id}
-                            placeholder="-- Chọn giải pháp --"
-                            isClearable
-                            styles={{ container: base => ({ flex: 1, ...base }) }}
-                          />
-                          <button type="button" onClick={() => removeEditingSolutionFromProduct(rcIndex, pIndex, sIndex)}>❌</button>
-                        </div>
-                      ))}
-                      <button type="button" onClick={() => addEditingSolutionToProduct(rcIndex, pIndex)}>🧩 Giải pháp</button>
-                    </div>
-                  </div>
-                ))}
-                <button type="button" onClick={() => addEditingProductToRepairContent(rcIndex)} style={{ marginBottom: 8 }}>🆕 Thêm sản phẩm</button><br />
-              </>
-            )}
+        .tabs {
+          display: flex;
+          gap: 1rem;
+          width: 1300px;
+          margin-bottom: 2rem;
+          background: white;
+          padding: 1rem;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
 
-            <button type="button" onClick={() => removeEditingRepairContent(rcIndex)}>❌ Xoá nội dung sửa chữa</button>
-          </div>
-        );
-      })}
-      <button type="button" onClick={addEditingRepairContent} style={{ marginTop: 8 }}>➕ Thêm nội dung sửa chữa</button>
-    </div>
+        .tab-button {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 1rem;
+          background: #f8f9fa;
+          color: #2c3e50;
+          transition: all 0.3s ease;
+        }
 
-    <button type="submit" style={{
-      marginTop: 20,
-      padding: '10px 20px',
-      background: '#4caf50',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 4,
-      fontSize: 16,
-      fontWeight: 'bold'
-    }}>
-      ✅ Cập nhật xe
-    </button>
-    <button
-      type="button"
-      onClick={() => {
-        setEditingId(null);
-        setEditingForm({
-          plateNumber: '',
-          carType: '',
-          repairContents: [],
-        });
-      }}
-      style={{
-        marginLeft: 10,
-        marginTop: 20,
-        padding: '10px 20px',
-        background: '#f44336',
-        color: '#fff',
-        border: 'none',
-        borderRadius: 4,
-        fontSize: 16,
-        fontWeight: 'bold',
-        cursor: 'pointer'
-      }}
-    >
-      Huỷ
-    </button>
-  </form>
-)}
+        .tab-button:hover {
+          background: #e9ecef;
+          transform: translateY(-1px);
+        }
 
+        .tab-button.active {
+          background: #4a90e2;
+          color: white;
+        }
 
+        .tab-content {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          padding: 2rem;
+          width: 1300px;
+          overflow-x: auto;
+        }
+
+        .car-form {
+          background: transparent;
+          padding: 0;
+          border-radius: 0;
+          box-shadow: none;
+          margin-bottom: 0;
+          width: 100%;
+        }
+
+        .form-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          padding-bottom: 1rem;
+          border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-header h3 {
+          color: #2c3e50;
+          margin: 0;
+          font-size: 1.5rem;
+        }
+
+        .form-group {
+          margin-bottom: 1.5rem;
+          width: 100%;
+        }
+
+        .form-group label {
+          display: block;
+          margin-bottom: 0.75rem;
+          font-weight: 600;
+          color: #2c3e50;
+          margin-left: 10px;
+        }
+
+        .form-group input,
+        .form-group select {
+          width: 100%;
+          max-width: 100%;
+          padding: 0.75rem 1rem;
+          border: 1px solid #e0e0e0;
+          border-radius: 6px;
+          font-size: 0.95rem;
+          transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+          outline: none;
+          border-color: #4a90e2;
+          box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+
+        .repair-contents {
+          width: 100%;
+        }
+          
+        .repair-content-item {
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          padding: 1.5rem;
+          margin-bottom: 2rem;
+          background: #f8f9fa;
+          transition: all 0.3s ease;
+          width: 100%;
+          max-width: 100%;
+          margin-top: 1.5rem;
+        }
+
+        .product-item {
+          background: white;
+          padding: 1.25rem;
+          border-radius: 8px;
+          margin-bottom: 1.5rem;
+          border: 1px solid #e0e0e0;
+          width: 100%;
+          max-width: 100%;
+          margin-top: 1rem;
+        }
+
+        .product-header {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 1rem;
+          align-items: center;
+          flex-wrap: wrap;
+          width: 100%;
+          max-width: 100%;
+          margin-top: 0.5rem;
+        }
+
+        .product-header > * {
+          flex: 1;
+          min-width: 200px;
+          max-width: 100%;
+          margin-bottom: 0.5rem;
+        }
+
+        .product-header .remove-btn {
+          flex: 0 0 auto;
+          min-width: auto;
+        }
+
+        .product-details {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid #e0e0e0;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .status-item,
+        .solution-item {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 0.75rem;
+          align-items: center;
+          flex-wrap: wrap;
+          width: 100%;
+          max-width: 100%;
+          margin-top: 0.5rem;
+        }
+
+        .status-item > *,
+        .solution-item > * {
+          flex: 1;
+          min-width: 200px;
+          max-width: 100%;
+          margin-bottom: 0.5rem;
+        }
+
+        .status-item .remove-btn,
+        .solution-item .remove-btn {
+          flex: 0 0 auto;
+          min-width: auto;
+        }
+
+        .add-btn {
+          background: #4a90e2;
+          color: white;
+          border: none;
+          padding: 0.75rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+          margin: 0.5rem 10px;
+          white-space: nowrap;
+        }
+
+        .add-btn:hover {
+          background: #357abd;
+          transform: translateY(-1px);
+        }
+
+        .remove-btn {
+          background: #dc3545;
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+          white-space: nowrap;
+          min-width: auto;
+        }
+
+        .remove-btn:hover {
+          background: #c82333;
+          transform: translateY(-1px);
+        }
+
+        .submit-btn {
+          background: #28a745;
+          color: white;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 1rem;
+          font-weight: 600;
+          margin-top: 2rem;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+          width: auto;
+          white-space: nowrap;
+        }
+
+        .submit-btn:hover {
+          background: #218838;
+          transform: translateY(-1px);
+        }
+
+        .cancel-btn {
+          background: #dc3545;
+          color: white;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+          white-space: nowrap;
+          min-width: auto;
+        }
+
+        .cancel-btn:hover {
+          background: #c82333;
+          transform: translateY(-1px);
+        }
+
+        .cars-list {
+          background: transparent;
+          padding: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+
+        .cars-list h3 {
+          color: #2c3e50;
+          margin-bottom: 1.5rem;
+          font-size: 1.5rem;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: separate;
+          border-spacing: 0;
+          margin-top: 1rem;
+        }
+
+        th, td {
+          padding: 1rem;
+          text-align: left;
+          border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+          background: #f8f9fa;
+          font-weight: 600;
+          color: #2c3e50;
+        }
+
+        tr:hover {
+          background-color: #f8f9fa;
+        }
+
+        /* Custom styles for react-select */
+        :global(.react-select__control) {
+          min-height: 42px !important;
+          max-width: 100% !important;
+        }
+
+        :global(.react-select__menu) {
+          max-width: 100% !important;
+        }
+
+        :global(.react-select__value-container) {
+          max-width: 100% !important;
+        }
+
+        :global(.react-select__input-container) {
+          max-width: 100% !important;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 1400px) {
+          .car-manager {
+            padding: 1rem;
+          }
+
+          .header,
+          .tabs,
+          .tab-content {
+            width: 100%;
+          }
+
+          .product-header > *,
+          .status-item > *,
+          .solution-item > * {
+            max-width: 100%;
+          }
+        }
+
+        .car-box {
+          background: #f8f9fa;
+          border-radius: 10px;
+          margin-bottom: 2rem;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          border: 1px solid #e0e0e0;
+          overflow: hidden;
+          transition: box-shadow 0.2s;
+        }
+        .car-box-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 1rem 1.5rem;
+          background: #eee;
+          border-bottom: 1px solid #e0e0e0;
+          cursor: pointer;
+        }
+        .car-box-title {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+        .car-box-actions {
+          display: flex;
+          gap: 0.5rem;
+        }
+        .car-box-detail {
+          padding: 1.5rem;
+          background: #fff;
+          animation: fadeIn 0.2s;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
