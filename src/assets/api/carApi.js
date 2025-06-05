@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/cars";
+const API_URL = "https://excel-ndpr.onrender.com/api/cars";
 
 export const getCars = () => axios.get(`${API_URL}/`);
 export const getCarById = (id) => axios.get(`${API_URL}/${id}`);

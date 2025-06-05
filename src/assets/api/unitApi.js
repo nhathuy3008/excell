@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api/units";
+const API_URL = "https://excel-ndpr.onrender.com/api/units";
 
 export const getUnits = () => axios.get(API_URL);
 
