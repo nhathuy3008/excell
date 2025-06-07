@@ -6,23 +6,44 @@ function calculateTotalAfterTax(price, taxPercent = 0, quantity = 1) {
 }
 
 function calculateCarTotal(car, products) {
-  let total = 0;
+  let total8PercentPreTax = 0;
+  let total8PercentPostTax = 0;
+  let total10PercentPreTax = 0;
+  let total10PercentPostTax = 0;
+
   (car.repairContents || []).forEach(rc => {
     const rcProducts = rc.products || [];
-    let rcTotal = 0;
-
     rcProducts.forEach(p => {
       const prod = products.find(pr => pr._id === (p.product._id || p.product));
-      if (prod) rcTotal += calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+      if (prod) {
+        const preTax = prod.price * p.quantity;
+        const postTax = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+        if (prod.tax === 8) {
+          total8PercentPreTax += preTax;
+          total8PercentPostTax += postTax;
+        } else if (prod.tax === 10) {
+          total10PercentPreTax += preTax;
+          total10PercentPostTax += postTax;
+        }
+      }
     });
-
     if (rcProducts.length === 0 && rc.servicePrice) {
-      rcTotal += calculateTotalAfterTax(rc.servicePrice, 8, 1);
+      total8PercentPreTax += rc.servicePrice;
+      total8PercentPostTax += calculateTotalAfterTax(rc.servicePrice, 8, 1);
     }
-
-    total += rcTotal;
   });
-  return total;
+  const vat8Percent = total8PercentPostTax - total8PercentPreTax;
+  const vat10Percent = total10PercentPostTax - total10PercentPreTax;
+  const totalAmount = total8PercentPostTax + total10PercentPostTax;
+  return {
+    total8PercentPreTax,
+    total8PercentPostTax,
+    total10PercentPreTax,
+    total10PercentPostTax,
+    vat8Percent,
+    vat10Percent,
+    totalAmount
+  };
 }
 
 function numberToVietnameseText(num) {
@@ -79,29 +100,27 @@ const exportToExcel = async (cars, repairContents, products) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Danh sách xe');
 
-  // Thiết lập trang in tối ưu cho A4 ngang
   worksheet.pageSetup = {
     orientation: 'landscape',
-    paperSize: 9, // A4
-    fitToPage: false, // Tắt fit to page để control scale chính xác
-    scale: 68, // Scale phù hợp để hiển thị tốt
+    paperSize: 9,
+    fitToPage: false,
+    scale: 68,
     margins: {
-      left: 0, // Margin trái để căn giữa
-      right: 0, // Margin phải để căn giữa
-      top: 0, // Margin trên
-      bottom: 0, // Margin dưới
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
       header: 0.0,
       footer: 0.0
     },
-    horizontalCentered: true, // Căn giữa theo chiều ngang
-    verticalCentered: false, // Không căn giữa theo chiều dọc (để giữ từ trên xuống)
+    horizontalCentered: true,
+    verticalCentered: false,
     blackAndWhite: false,
     draft: false,
     cellComments: 'None',
     errors: 'displayed'
   };
 
-  // Thiết lập độ rộng cột tối ưu - ĐIỀU CHỈNH THEO YÊU CẦU
   worksheet.columns = [
     { header: 'Mã sản phẩm', key: 'code', width: 18 },
     { header: 'Thương hiệu', key: 'brand', width: 12 },
@@ -111,14 +130,12 @@ const exportToExcel = async (cars, repairContents, products) => {
     { header: 'Thuế (%)', key: 'tax', width: 10 },
     { header: 'Số lượng', key: 'quantity', width: 12 },
     { header: 'Giá bán', key: 'price', width: 18 },
-    { header: 'Tiền sau thuế', key: 'totalAfterTax', width: 22 }, // Tăng từ 22 lên 22
-    { header: 'Trạng thái', key: 'statuses', width: 19 }, // Giảm từ 20 xuống 19
-    { header: 'Giải pháp', key: 'solutions', width: 20 }, // Giảm từ 20 xuống 20
+    { header: 'Tiền sau thuế', key: 'totalAfterTax', width: 22 },
+    { header: 'Trạng thái', key: 'statuses', width: 19 },
+    { header: 'Giải pháp', key: 'solutions', width: 20 },
   ];
 
-  // Định nghĩa styles chuẩn
   const styles = {
-    // Border styles cho in ấn
     thickBorder: {
       top: { style: 'thick', color: { argb: 'FF000000' } },
       left: { style: 'thick', color: { argb: 'FF000000' } },
@@ -137,12 +154,11 @@ const exportToExcel = async (cars, repairContents, products) => {
       bottom: { style: 'thin', color: { argb: 'FF000000' } },
       right: { style: 'thin', color: { argb: 'FF000000' } }
     },
-    // Fill colors
-    carHeaderFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCCCC' } }, // Hồng nhạt
-    repairContentFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } }, // Xanh nhạt
-    headerFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFFCC' } }, // Xanh lá nhạt
-    totalFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF99' } }, // Vàng nhạt
-    noDataFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } } // Xám nhạt
+    carHeaderFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFCCCC' } },
+    repairContentFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } },
+    headerFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFFCC' } },
+    totalFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF99' } },
+    noDataFill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0F0' } }
   };
 
   const formatMoney = (num) => num ? num.toLocaleString('vi-VN') + 'đ' : '0đ';
@@ -150,12 +166,9 @@ const exportToExcel = async (cars, repairContents, products) => {
   let rowIndex = 1;
   let totalAllCars = 0;
 
-  // Hàm apply style cho cell với đầy đủ borders
   function applyCellStyle(cell, options = {}) {
-    // Luôn luôn có border
     cell.border = options.border || styles.thinBorder;
 
-    // Alignment mặc định
     cell.alignment = options.alignment || {
       horizontal: 'center',
       vertical: 'middle',
@@ -163,23 +176,19 @@ const exportToExcel = async (cars, repairContents, products) => {
       shrinkToFit: false
     };
 
-    // Font
     if (options.font) {
       cell.font = options.font;
     }
 
-    // Fill
     if (options.fill) {
       cell.fill = options.fill;
     }
 
-    // Number format cho tiền
     if (options.numFmt) {
       cell.numFmt = options.numFmt;
     }
   }
 
-  // Hàm apply style cho range đã merge
   function applyMergedRangeStyle(startRow, startCol, endRow, endCol, style) {
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
@@ -189,7 +198,6 @@ const exportToExcel = async (cars, repairContents, products) => {
     }
   }
 
-  // Hàm tạo header cho bảng sản phẩm
   function createProductHeader(rowIndex) {
     const headerRow = worksheet.getRow(rowIndex);
 
@@ -208,168 +216,185 @@ const exportToExcel = async (cars, repairContents, products) => {
     return rowIndex + 1;
   }
 
-  // Bắt đầu xử lý từng xe
   for (const car of cars) {
-    // === HEADER BIỂN SỐ XE ===
-    worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
-const carHeaderText = `🚗 BIỂN SỐ: ${car.plateNumber} | LOẠI XE: ${car.carType?.name || 'N/A'}`;
+    const carTotal = calculateCarTotal(car, products);
+    totalAllCars += carTotal.totalAmount;
 
-const carHeaderCell = worksheet.getCell(rowIndex, 1);
-carHeaderCell.value = carHeaderText;
-applyCellStyle(carHeaderCell, {
-  fill: styles.carHeaderFill,
-  font: { bold: true, size: 16, name: 'Arial', color: { argb: 'FFDC143C' } }, // Màu đỏ
-  border: styles.thickBorder,
-  alignment: { horizontal: 'center', vertical: 'middle' }
-});
+    worksheet.mergeCells(`A${rowIndex}:G${rowIndex}`);
+    worksheet.mergeCells(`H${rowIndex}:K${rowIndex}`);
 
-// Apply style cho toàn bộ merged range
-applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
-  fill: styles.carHeaderFill,
-  border: styles.thickBorder
-});
+    const carHeaderText = `🚗 BIỂN SỐ: ${car.plateNumber} | LOẠI XE: ${car.carType?.name || 'N/A'}`;
+    const totalAmountText = `💰 TỔNG TIỀN: ${formatMoney(carTotal.totalAmount)}`;
 
-worksheet.getRow(rowIndex).height = 80; // Đã sửa từ 35 thành 80
-rowIndex++;
-
-// === XỬ LÝ TỪNG REPAIR CONTENT ===
-for (const rc of car.repairContents || []) {
-  // Header nội dung sửa chữa
-  worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
-
-  const rcName = repairContents.find(item =>
-    item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
-  )?.name || rc.name || 'Không có tên';
-
-  const rcHeaderText = `🔧 NỘI DUNG SỬA CHỮA: ${rcName}`;
-
-  const rcHeaderCell = worksheet.getCell(rowIndex, 1);
-  rcHeaderCell.value = rcHeaderText;
-  applyCellStyle(rcHeaderCell, {
-    fill: styles.repairContentFill,
-    font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF000000' } },
-    border: styles.mediumBorder,
-    alignment: { horizontal: 'center', vertical: 'middle' }
-  });
-
-  // Apply style cho merged range
-  applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
-    fill: styles.repairContentFill,
-    border: styles.mediumBorder
-  });
-
-  worksheet.getRow(rowIndex).height = 80; // Đã sửa từ 30 thành 80
-  rowIndex++;
-
-  // Header bảng sản phẩm
-  rowIndex = createProductHeader(rowIndex);
-
-  // === XỬ LÝ PRODUCTS ===
-  const rcProducts = rc.products || [];
-  const validProducts = rcProducts.filter(p =>
-    products.find(prod => prod._id === (p.product._id || p.product))
-  );
-
- // Hàm ước lượng số dòng cần thiết sau khi wrapText
-function estimateWrappedLineCount(text, columnWidth, fontSize = 15) {
-  const avgCharWidth = fontSize * 0.6;        // Ước lượng chiều rộng trung bình của 1 ký tự
-  const pxPerChar = columnWidth * 7;          // 1 unit trong ExcelJS ~ 7px
-  const maxCharsPerLine = Math.floor(pxPerChar / avgCharWidth);
-
-  const lines = text.split('\n');
-  return lines.reduce((count, line) => {
-    return count + Math.max(1, Math.ceil(line.length / maxCharsPerLine));
-  }, 0);
-}
-
-if (validProducts.length > 0) {
-  // ĐIỀU CHỈNH COLUMN WIDTHS THEO YÊU CẦU
-  const columnWidths = [18, 12, 15, 30, 12, 10, 12, 18, 22, 19, 20];
-  columnWidths.forEach((width, index) => {
-    worksheet.getColumn(index + 1).width = width;
-  });
-
-  validProducts.forEach(p => {
-    const prod = products.find(pr => pr._id === (p.product._id || p.product));
-    if (!prod) return;
-
-    const total = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
-    const row = worksheet.getRow(rowIndex);
-
-    const specs = (prod.specs || []).length > 0
-      ? (prod.specs || []).map(s => `• ${s}`).join('\n')
-      : 'N/A';
-
-    const statuses = p.statuses?.map(st => st.name).join(', ') || 'Chưa có';
-    const solutions = p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có';
-
-    const rowData = [
-      prod.code || 'N/A',
-      prod.brand || 'N/A',
-      prod.origin || 'N/A',
-      specs,
-      prod.unit?.name || 'N/A',
-      prod.tax ? `${prod.tax}%` : '0%',
-      p.quantity || 1,
-      formatMoney(prod.price),
-      formatMoney(total),
-      statuses,
-      solutions
-    ];
-
-    rowData.forEach((value, index) => {
-      const cell = row.getCell(index + 1);
-      cell.value = value;
-
-      // Cột thứ 4 (index === 3) là specs -> font size 15
-      const isSpecsColumn = index === 3;
-      applyCellStyle(cell, {
-        font: { size: isSpecsColumn ? 15 : 12, name: 'Arial' },
-        border: styles.thinBorder,
-        alignment: {
-          horizontal: 'center',
-          vertical: 'middle',
-          wrapText: true
-        }
-      });
+    const carHeaderCell = worksheet.getCell(rowIndex, 1);
+    carHeaderCell.value = carHeaderText;
+    applyCellStyle(carHeaderCell, {
+      fill: styles.carHeaderFill,
+      font: { bold: true, size: 16, name: 'Arial', color: { argb: 'FFDC143C' } },
+      border: styles.thickBorder,
+      alignment: { horizontal: 'left', vertical: 'middle' }
     });
 
-    // Tính chiều cao dòng dựa trên specs
-    const specsColumnWidth = columnWidths[3]; // Cột specs là cột thứ 4
-    const specsLineCount = estimateWrappedLineCount(specs, specsColumnWidth, 15);
-    const baseHeight = 20;
-    const lineHeight = 22; // điều chỉnh cao hơn nếu text nhiều
-    row.height = baseHeight + specsLineCount * lineHeight;
+    const totalAmountCell = worksheet.getCell(rowIndex, 8);
+    totalAmountCell.value = totalAmountText;
+    applyCellStyle(totalAmountCell, {
+      fill: styles.carHeaderFill,
+      font: { bold: true, size: 16, name: 'Arial', color: { argb: 'FF0066CC' } },
+      border: styles.thickBorder,
+      alignment: { horizontal: 'right', vertical: 'middle' }
+    });
 
+    applyMergedRangeStyle(rowIndex, 1, rowIndex, 7, {
+      fill: styles.carHeaderFill,
+      border: styles.thickBorder
+    });
+    applyMergedRangeStyle(rowIndex, 8, rowIndex, 11, {
+      fill: styles.carHeaderFill,
+      border: styles.thickBorder
+    });
+
+    worksheet.getRow(rowIndex).height = 80;
     rowIndex++;
-  });
-}
 
-      
-      
-       else if (rc.servicePrice) {
-        // Có dịch vụ công
+    for (const rc of car.repairContents || []) {
+      worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
+
+      const rcName = repairContents.find(item =>
+        item._id === (typeof rc.repairContent === 'object' ? rc.repairContent._id : rc.repairContent)
+      )?.name || rc.name || 'Không có tên';
+
+      const rcHeaderText = `🔧 NỘI DUNG CÔNG VIỆC: ${rcName}`;
+
+      const rcHeaderCell = worksheet.getCell(rowIndex, 1);
+      rcHeaderCell.value = rcHeaderText;
+      applyCellStyle(rcHeaderCell, {
+        fill: styles.repairContentFill,
+        font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF000000' } },
+        border: styles.mediumBorder,
+        alignment: { horizontal: 'center', vertical: 'middle' }
+      });
+
+      applyMergedRangeStyle(rowIndex, 1, rowIndex, 11, {
+        fill: styles.repairContentFill,
+        border: styles.mediumBorder
+      });
+
+      worksheet.getRow(rowIndex).height = 80;
+      rowIndex++;
+
+      rowIndex = createProductHeader(rowIndex);
+
+      const rcProducts = rc.products || [];
+      const validProducts = rcProducts.filter(p =>
+        products.find(prod => prod._id === (p.product._id || p.product))
+      );
+
+      function estimateWrappedLineCount(text, columnWidth, fontSize = 15) {
+        const avgCharWidth = fontSize * 0.6;
+        const pxPerChar = columnWidth * 7;
+        const maxCharsPerLine = Math.floor(pxPerChar / avgCharWidth);
+
+        const lines = text.split('\n');
+        return lines.reduce((count, line) => {
+          return count + Math.max(1, Math.ceil(line.length / maxCharsPerLine));
+        }, 0);
+      }
+
+      if (validProducts.length > 0) {
+        const columnWidths = [18, 12, 15, 30, 12, 10, 12, 18, 22, 19, 20];
+        columnWidths.forEach((width, index) => {
+          worksheet.getColumn(index + 1).width = width;
+        });
+
+        validProducts.forEach(p => {
+          const prod = products.find(pr => pr._id === (p.product._id || p.product));
+          if (!prod) return;
+
+          const total = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+          const row = worksheet.getRow(rowIndex);
+
+          const specs = (prod.specs || []).length > 0
+            ? (prod.specs || []).map(s => `• ${s}`).join('\n')
+            : 'N/A';
+
+          const statuses = p.statuses?.map(st => st.name).join(', ') || 'Chưa có';
+          const solutions = p.solutions?.map(sol => sol.name).join(', ') || 'Chưa có';
+
+          const rowData = [
+            prod.code || 'N/A',
+            prod.brand || 'N/A',
+            prod.origin || 'N/A',
+            specs,
+            prod.unit?.name || 'N/A',
+            prod.tax ? `${prod.tax}%` : '0%',
+            p.quantity || 1,
+            formatMoney(prod.price),
+            formatMoney(total),
+            statuses,
+            solutions
+          ];
+
+          rowData.forEach((value, index) => {
+            const cell = row.getCell(index + 1);
+            cell.value = value;
+
+            const isSpecsColumn = index === 3;
+            applyCellStyle(cell, {
+              font: { size: isSpecsColumn ? 15 : 12, name: 'Arial' },
+              border: styles.thinBorder,
+              alignment: {
+                horizontal: 'center',
+                vertical: 'middle',
+                wrapText: true
+              }
+            });
+          });
+
+          const specsColumnWidth = columnWidths[3];
+          const specsLineCount = estimateWrappedLineCount(specs, specsColumnWidth, 13);
+          const baseHeight = 24;
+          const lineHeight = 30;
+          const paddingPixels = 20;
+          row.height = baseHeight + specsLineCount * lineHeight + paddingPixels;
+
+          const specsCell = row.getCell(4);
+          applyCellStyle(specsCell, {
+            font: { size: 15, name: 'Arial' },
+            border: styles.thinBorder,
+            alignment: {
+              horizontal: 'center',
+              vertical: 'middle',
+              wrapText: true,
+              indent: 1
+            }
+          });
+
+          rowIndex++;
+        });
+      }
+
+      else if (rc.servicePrice) {
         const totalServicePrice = calculateTotalAfterTax(rc.servicePrice, 8, 1);
         const row = worksheet.getRow(rowIndex);
-      
+
         const serviceData = [
-          'DV-CONG', // Mã
-          'Dịch vụ', // Thương hiệu
-          '',        // Xuất xứ
-          'Dịch vụ sửa chữa, bảo dưỡng', // Thông số kỹ thuật
-          'Công việc',                   // Đơn vị
-          '8%',                          // Thuế
-          1,                             // Số lượng
-          formatMoney(rc.servicePrice),         // Đơn giá
-          formatMoney(totalServicePrice),       // Thành tiền
-          rc.solutions?.map(sol => sol.name).join(', '), // Giải pháp
-          rc.statuses?.map(st => st.name).join(', ')     // Trạng thái
+          'DV-CONG',
+          'Dịch vụ',
+          '',
+          'Dịch vụ sửa chữa, bảo dưỡng',
+          'Công việc',
+          '8%',
+          1,
+          formatMoney(rc.servicePrice),
+          formatMoney(totalServicePrice),
+          rc.solutions?.map(sol => sol.name).join(', '),
+          rc.statuses?.map(st => st.name).join(', ')
         ];
-      
+
         serviceData.forEach((value, index) => {
           const cell = row.getCell(index + 1);
           cell.value = value;
-      
+
           applyCellStyle(cell, {
             font: { size: 12, name: 'Arial', italic: true },
             border: styles.thinBorder,
@@ -381,14 +406,12 @@ if (validProducts.length > 0) {
             }
           });
         });
-      
-        // Tăng chiều cao dòng để hiển thị nội dung tốt hơn
+
         row.height = 40;
-      
+
         rowIndex++;
       }
-       else {
-        // Không có sản phẩm
+      else {
         worksheet.mergeCells(`A${rowIndex}:K${rowIndex}`);
         const noDataCell = worksheet.getCell(rowIndex, 1);
         noDataCell.value = '⚠️ Không có sản phẩm nào';
@@ -409,116 +432,95 @@ if (validProducts.length > 0) {
         rowIndex++;
       }
 
-      // Khoảng cách giữa các repair content
       rowIndex++;
     }
 
-    // === TỔNG TIỀN XE ===
-    const carTotal = calculateCarTotal(car, products);
-    totalAllCars += carTotal;
-
-    // Merge cells cho tổng tiền xe
-    worksheet.mergeCells(`A${rowIndex}:H${rowIndex}`); // Cột 1-8: Label
-    worksheet.mergeCells(`J${rowIndex}:K${rowIndex}`); // Cột 10-11: Tiền bằng chữ
-
-    const totalRow = worksheet.getRow(rowIndex);
-
-    // Label tổng tiền
-    const totalLabelCell = totalRow.getCell(1);
-    totalLabelCell.value = '💰 TỔNG TIỀN XE:';
-    applyCellStyle(totalLabelCell, {
-      fill: styles.totalFill,
-      font: { bold: true, size: 15, name: 'Arial' },
-      border: styles.mediumBorder,
-      alignment: { horizontal: 'right', vertical: 'middle' }
-    });
-
-    // Số tiền
-    const totalAmountCell = totalRow.getCell(9);
-    totalAmountCell.value = formatMoney(carTotal);
-    applyCellStyle(totalAmountCell, {
-      fill: styles.totalFill,
-      font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FF0066CC' } },
-      border: styles.mediumBorder,
-      alignment: { horizontal: 'center', vertical: 'middle' }
-    });
-
-    // Tiền bằng chữ
-    const totalTextCell = totalRow.getCell(10);
-    totalTextCell.value = numberToVietnameseText(carTotal);
-    applyCellStyle(totalTextCell, {
-      fill: styles.totalFill,
-      font: { bold: true, size: 14, name: 'Arial', italic: true },
-      border: styles.mediumBorder,
-      alignment: { horizontal: 'left', vertical: 'middle', wrapText: true }
-    });
-
-    // Apply style cho merged ranges
-    applyMergedRangeStyle(rowIndex, 1, rowIndex, 8, {
-      fill: styles.totalFill,
-      border: styles.mediumBorder
-    });
-    applyMergedRangeStyle(rowIndex, 10, rowIndex, 11, {
-      fill: styles.totalFill,
-      border: styles.mediumBorder
-    });
-
-    // Tính chiều cao dựa vào độ dài text tiền chữ - CỐ ĐỊNH 30 ĐỂ ĐẸP HơN KHI IN
-    totalRow.height = 80;
-
-    rowIndex += 2; // Khoảng cách giữa các xe
+    rowIndex += 2;
   }
 
-  // === TỔNG TIỀN TẤT CẢ XE ===
-  worksheet.mergeCells(`A${rowIndex}:H${rowIndex}`);
-  worksheet.mergeCells(`J${rowIndex}:K${rowIndex}`);
+  let all8PreTax = 0, all8PostTax = 0, all10PreTax = 0, all10PostTax = 0;
+  cars.forEach(car => {
+    const t = calculateCarTotal(car, products);
+    all8PreTax += t.total8PercentPreTax;
+    all8PostTax += t.total8PercentPostTax;
+    all10PreTax += t.total10PercentPreTax;
+    all10PostTax += t.total10PercentPostTax;
+  });
+  const allVat8 = all8PostTax - all8PreTax;
+  const allVat10 = all10PostTax - all10PreTax;
+  const allPreTax = all8PreTax + all10PreTax;
+  const allVat = allVat8 + allVat10;
+  const allPostTax = all8PostTax + all10PostTax;
 
-  const grandTotalRow = worksheet.getRow(rowIndex);
+  worksheet.getColumn(4).width = 35;
+  worksheet.getColumn(5).width = 15;
+  worksheet.getColumn(6).width = 15;
+  worksheet.getColumn(7).width = 15;
+  worksheet.getColumn(8).width = 15;
 
-  // Label tổng cuối
-  const grandTotalLabelCell = grandTotalRow.getCell(1);
-  grandTotalLabelCell.value = '🏆 TỔNG TIỀN TẤT CẢ XE:';
-  applyCellStyle(grandTotalLabelCell, {
-    fill: styles.totalFill,
-    font: { bold: true, size: 16, name: 'Arial' },
-    border: styles.thickBorder,
-    alignment: { horizontal: 'right', vertical: 'middle' }
+  rowIndex++;
+  worksheet.mergeCells(`C${rowIndex}:D${rowIndex}`);
+  worksheet.mergeCells(`E${rowIndex}:F${rowIndex}`);
+  worksheet.mergeCells(`G${rowIndex}:H${rowIndex}`);
+  worksheet.getCell(rowIndex, 3).value = 'Thuế suất 8%';
+  worksheet.getCell(rowIndex, 5).value = 'Thuế suất 10%';
+  worksheet.getCell(rowIndex, 7).value = 'Tổng cộng';
+
+  [3, 5, 7].forEach(col => {
+    const cell = worksheet.getCell(rowIndex, col);
+    applyCellStyle(cell, {
+      font: { bold: true, size: 18 },
+      alignment: { horizontal: 'center' },
+      border: styles.thickBorder,
+      fill: styles.totalFill
+    });
   });
 
-  // Tổng số tiền
-  const grandTotalAmountCell = grandTotalRow.getCell(9);
-  grandTotalAmountCell.value = formatMoney(totalAllCars);
-  applyCellStyle(grandTotalAmountCell, {
-    fill: styles.totalFill,
-    font: { bold: true, size: 14, name: 'Arial', color: { argb: 'FFFF0000' } },
-    border: styles.thickBorder,
-    alignment: { horizontal: 'center', vertical: 'middle' }
+  rowIndex++;
+  worksheet.mergeCells(`C${rowIndex}:D${rowIndex}`);
+  worksheet.mergeCells(`E${rowIndex}:F${rowIndex}`);
+  worksheet.mergeCells(`G${rowIndex}:H${rowIndex}`);
+  worksheet.mergeCells(`A${rowIndex}:B${rowIndex}`);
+  worksheet.getCell(rowIndex, 1).value = 'Tiền trước thuế';
+  worksheet.getCell(rowIndex, 3).value = formatMoney(all8PreTax);
+  worksheet.getCell(rowIndex, 5).value = formatMoney(all10PreTax);
+  worksheet.getCell(rowIndex, 7).value = formatMoney(allPreTax);
+
+  rowIndex++;
+  worksheet.mergeCells(`C${rowIndex}:D${rowIndex}`);
+  worksheet.mergeCells(`E${rowIndex}:F${rowIndex}`);
+  worksheet.mergeCells(`G${rowIndex}:H${rowIndex}`);
+  worksheet.mergeCells(`A${rowIndex}:B${rowIndex}`);
+  worksheet.getCell(rowIndex, 1).value = 'Thuế GTGT';
+  worksheet.getCell(rowIndex, 3).value = formatMoney(allVat8);
+  worksheet.getCell(rowIndex, 5).value = formatMoney(allVat10);
+  worksheet.getCell(rowIndex, 7).value = formatMoney(allVat);
+
+  rowIndex++;
+  worksheet.mergeCells(`C${rowIndex}:D${rowIndex}`);
+  worksheet.mergeCells(`E${rowIndex}:F${rowIndex}`);
+  worksheet.mergeCells(`G${rowIndex}:H${rowIndex}`);
+  worksheet.mergeCells(`A${rowIndex}:B${rowIndex}`);
+  worksheet.getCell(rowIndex, 1).value = 'Tiền thanh toán';
+  worksheet.getCell(rowIndex, 3).value = formatMoney(all8PostTax);
+  worksheet.getCell(rowIndex, 5).value = formatMoney(all10PostTax);
+  worksheet.getCell(rowIndex, 7).value = formatMoney(allPostTax);
+
+  for (let i = rowIndex - 2; i <= rowIndex; i++) {
+    [1, 3, 5, 7].forEach(col => {
+      applyCellStyle(worksheet.getCell(i, col), {
+        font: { bold: true, size: 16 },
+        alignment: { horizontal: 'center' },
+        border: styles.thickBorder
+      });
+    });
+    worksheet.getRow(i).height = 30;
+  }
+
+  [1, 3, 5, 7].forEach(col => {
+    worksheet.getCell(rowIndex, col).fill = styles.totalFill;
   });
 
-  // Tổng tiền bằng chữ
-  const grandTotalTextCell = grandTotalRow.getCell(10);
-  grandTotalTextCell.value = numberToVietnameseText(totalAllCars);
-  applyCellStyle(grandTotalTextCell, {
-    fill: styles.totalFill,
-    font: { bold: true, size: 14, name: 'Arial', italic: true },
-    border: styles.thickBorder,
-    alignment: { horizontal: 'left', vertical: 'middle', wrapText: true }
-  });
-
-  // Apply style cho merged ranges cuối
-  applyMergedRangeStyle(rowIndex, 1, rowIndex, 8, {
-    fill: styles.totalFill,
-    border: styles.thickBorder
-  });
-  applyMergedRangeStyle(rowIndex, 10, rowIndex, 11, {
-    fill: styles.totalFill,
-    border: styles.thickBorder
-  });
-
-  // Tổng tiền bằng chữ - CỐ ĐỊNH CHIỀU CAO 30 ĐỂ ĐẸP HơN KHI IN
-  grandTotalRow.height = 90;
-
-  // === XUẤT FILE ===
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   saveAs(blob, 'Danh_sach_xe_chi_tiet.xlsx');

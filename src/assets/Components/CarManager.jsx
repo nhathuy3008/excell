@@ -8,6 +8,50 @@ import { getSolutions } from '../api/solutionApi';
 import { getStatuses } from '../api/statusApi';
 import exportToExcel from './exportToExcel';
 
+function getTaxSummary(cars, products) {
+  let all8PreTax = 0, all8PostTax = 0, all10PreTax = 0, all10PostTax = 0;
+  function calculateTotalAfterTax(price, taxPercent = 0, quantity = 1) {
+    return price * quantity * (1 + taxPercent / 100);
+  }
+  cars.forEach(car => {
+    (car.repairContents || []).forEach(rc => {
+      const rcProducts = rc.products || [];
+      rcProducts.forEach(p => {
+        const prod = products.find(pr => pr._id === (p.product._id || p.product));
+        if (prod) {
+          const preTax = prod.price * p.quantity;
+          const postTax = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+          if (prod.tax === 8) {
+            all8PreTax += preTax;
+            all8PostTax += postTax;
+          } else if (prod.tax === 10) {
+            all10PreTax += preTax;
+            all10PostTax += postTax;
+          }
+        }
+      });
+      if (rcProducts.length === 0 && rc.servicePrice) {
+        all8PreTax += rc.servicePrice;
+        all8PostTax += calculateTotalAfterTax(rc.servicePrice, 8, 1);
+      }
+    });
+  });
+  const allVat8 = all8PostTax - all8PreTax;
+  const allVat10 = all10PostTax - all10PreTax;
+  const allPreTax = all8PreTax + all10PreTax;
+  const allVat = allVat8 + allVat10;
+  const allPostTax = all8PostTax + all10PostTax;
+  return {
+    all8PreTax, all10PreTax, allPreTax,
+    allVat8, allVat10, allVat,
+    all8PostTax, all10PostTax, allPostTax
+  };
+}
+
+function formatMoney(num) {
+  return num ? num.toLocaleString('vi-VN') + 'đ' : '0đ';
+}
+
 function CarManager() {
   const [activeTab, setActiveTab] = useState('form');
   const [cars, setCars] = useState([]);
@@ -25,6 +69,8 @@ function CarManager() {
     repairContents: [],
   });
   const [expandedCarIds, setExpandedCarIds] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const calculateTotalAfterTax = (price, tax, quantity) => {
     const p = parseFloat(price || 0);
@@ -314,6 +360,31 @@ function CarManager() {
     );
   };
 
+  const taxSummary = getTaxSummary(cars, products);
+
+  // Thêm hàm mở dialog xác nhận
+  const openDeleteDialog = (carId) => {
+    setConfirmDeleteId(carId);
+    setShowDeleteDialog(true);
+  };
+  // Thêm hàm đóng dialog xác nhận
+  const closeDeleteDialog = () => {
+    setConfirmDeleteId(null);
+    setShowDeleteDialog(false);
+  };
+
+  // Hàm xóa xe
+  const handleDelete = async (carId) => {
+    try {
+      await deleteCar(carId);
+      await fetchAllData();
+      // Có thể thêm thông báo thành công ở đây nếu muốn
+    } catch (error) {
+      console.error('Lỗi khi xóa xe:', error);
+      // Có thể thêm thông báo lỗi ở đây nếu muốn
+    }
+  };
+
   return (
     <div className="car-manager">
       <div className="header">
@@ -356,6 +427,12 @@ function CarManager() {
           onClick={() => setActiveTab('list')}
         >
           📋 Danh sách xe
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'summary' ? 'active' : ''}`}
+          onClick={() => setActiveTab('summary')}
+        >
+          📊 Tổng hợp
         </button>
       </div>
 
@@ -548,8 +625,8 @@ function CarManager() {
                 return (
                   <div key={car._id} className="car-box">
                     <div className="car-box-header">
-                      <div className="car-box-title" onClick={() => toggleCarExpand(car._id)} style={{cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem'}}>
-                        <span style={{marginRight: 12}}>{isExpanded ? '▼' : '▶'}</span>
+                      <div className="car-box-title" onClick={() => toggleCarExpand(car._id)} style={{ cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem' }}>
+                        <span style={{ marginRight: 12 }}>{isExpanded ? '▼' : '▶'}</span>
                         <b>Biển số:</b> {car.plateNumber} | <b>Loại xe:</b> {car.carType?.name || ''}
                       </div>
                       <div className="car-box-actions">
@@ -568,7 +645,7 @@ function CarManager() {
                           Sửa
                         </button>
                         <button
-                          onClick={() => handleDelete(car._id)}
+                          onClick={() => openDeleteDialog(car._id)}
                           style={{
                             backgroundColor: '#dc3545',
                             color: 'white',
@@ -692,7 +769,76 @@ function CarManager() {
               })}
           </div>
         )}
+        {activeTab === 'summary' && (
+          <div style={{
+            maxWidth: 1200,
+            margin: '0 auto 32px auto',
+            background: '#fffbe6',
+            border: '3px solid #ffe066',
+            borderRadius: 12,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+            padding: 24
+          }}>
+            <table style={{ width: '100%', fontSize: 20, fontWeight: 600, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#fff3bf' }}>
+                  <th style={{ width: 220, border: '2px solid #ffe066' }}></th>
+                  <th style={{ border: '2px solid #ffe066' }}>Thuế suất 8%</th>
+                  <th style={{ border: '2px solid #ffe066' }}>Thuế suất 10%</th>
+                  <th style={{ border: '2px solid #ffe066' }}>Tổng cộng</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ border: '2px solid #ffe066' }}>Tiền trước thuế</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.all8PreTax)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.all10PreTax)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.allPreTax)}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '2px solid #ffe066' }}>Thuế GTGT</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.allVat8)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.allVat10)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center' }}>{formatMoney(taxSummary.allVat)}</td>
+                </tr>
+                <tr style={{ background: '#fff3bf' }}>
+                  <td style={{ border: '2px solid #ffe066' }}>Tiền thanh toán</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center', fontWeight: 'bold', fontSize: 22 }}>{formatMoney(taxSummary.all8PostTax)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center', fontWeight: 'bold', fontSize: 22 }}>{formatMoney(taxSummary.all10PostTax)}</td>
+                  <td style={{ border: '2px solid #ffe066', textAlign: 'center', fontWeight: 'bold', fontSize: 22 }}>{formatMoney(taxSummary.allPostTax)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Dialog xác nhận xóa */}
+      {showDeleteDialog && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{ background: 'white', padding: 32, borderRadius: 12, minWidth: 320, boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
+            <h3 style={{ marginBottom: 16 }}>Xác nhận xoá xe?</h3>
+            <p>Bạn có chắc chắn muốn xoá xe này không? Hành động này không thể hoàn tác.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
+              <button onClick={closeDeleteDialog} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#ccc', color: '#222', fontWeight: 500, cursor: 'pointer' }}>Huỷ</button>
+              <button
+                onClick={async () => {
+                  if (confirmDeleteId) {
+                    await handleDelete(confirmDeleteId);
+                    closeDeleteDialog();
+                  }
+                }}
+                style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#dc3545', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Xoá
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .car-manager, .car-manager * {
