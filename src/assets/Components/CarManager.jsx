@@ -53,6 +53,7 @@ function formatMoney(num) {
 }
 
 function CarManager() {
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('form');
   const [cars, setCars] = useState([]);
   const [cateCars, setCateCars] = useState([]);
@@ -112,6 +113,7 @@ function CarManager() {
   }, []);
 
   const fetchAllData = async () => {
+    setLoading(true);
     try {
       const [carRes, cateCarRes, repairContentRes, productRes, statusRes, solutionRes] = await Promise.all([
         getCars(),
@@ -129,6 +131,8 @@ function CarManager() {
       setSolutions(solutionRes.data);
     } catch (error) {
       console.error('Lỗi khi load dữ liệu:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -387,6 +391,10 @@ function CarManager() {
 
   return (
     <div className="car-manager">
+      {loading ? (
+        <div className="loading-spinner"></div>
+      ) : (
+        <>
       <div className="header">
         <h2>Quản lý Xe</h2>
         <div className="actions">
@@ -841,6 +849,28 @@ function CarManager() {
       )}
 
       <style jsx>{`
+        .loading-spinner {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          height: 100px;
+        }
+
+        .loading-spinner::after {
+          content: "";
+          width: 40px;
+          height: 40px;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #3498db;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
         .car-manager, .car-manager * {
           box-sizing: border-box;
         }
@@ -1290,6 +1320,8 @@ function CarManager() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+        </>
+      )}
     </div>
   );
 }
