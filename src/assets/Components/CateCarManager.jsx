@@ -27,19 +27,24 @@ function CateCarManager() {
   const [form, setForm] = useState({ name: "" });
   const [editingId, setEditingId] = useState(null);
   const [editingForm, setEditingForm] = useState({ name: "" }); 
+const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCateCars();
   }, []);
 
   const fetchCateCars = async () => {
-    try {
-      const res = await getCateCars();
-      setCateCars(res.data);
-    } catch (error) {
-      console.error("Lỗi lấy danh mục xe:", error);
-    }
-  };
+  try {
+    setLoading(true); // Bắt đầu tải
+    const res = await getCateCars();
+    setCateCars(res.data);
+  } catch (error) {
+    console.error("Lỗi lấy danh mục xe:", error);
+  } finally {
+    setLoading(false); // Dừng tải
+  }
+};
+
 
   const handleChange = (e, isEdit = false) => {
     const { name, value } = e.target;
@@ -177,15 +182,24 @@ function CateCarManager() {
                 </TableCell>
               </TableRow>
             ))}
-            {cateCars.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Chưa có danh mục xe nào. Vui lòng thêm mới.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
+            {loading ? (
+  <TableRow>
+    <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+      <Typography variant="body2" color="text.secondary">
+        Vui lòng đợi một chút, dữ liệu đang được tải...
+      </Typography>
+    </TableCell>
+  </TableRow>
+) : cateCars.length === 0 && (
+  <TableRow>
+    <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+      <Typography variant="body2" color="text.secondary">
+        Chưa có danh mục xe nào. Vui lòng thêm mới.
+      </Typography>
+    </TableCell>
+  </TableRow>
+)}
+
           </TableBody>
         </Table>
       </Paper>

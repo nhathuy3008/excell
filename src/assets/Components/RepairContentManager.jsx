@@ -14,31 +14,33 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer, // Added for consistency
+  TableContainer,
   TableHead,
   TableRow,
   Paper,
   IconButton,
-  Tooltip, // Added for better UX
-  Alert, // Added for feedback
-  Dialog, // Using Dialog for editing for consistency
+  Tooltip,
+  Alert,
+  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  CircularProgress,
 } from "@mui/material";
-import { Edit, Delete, Add } from "@mui/icons-material"; // Removed Save, Cancel as we'll use Dialog
+import { Edit, Delete, Add } from "@mui/icons-material";
 
 function RepairContentManager() {
   const [repairContents, setRepairContents] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(""); // For search functionality
-  const [newItemName, setNewItemName] = useState(""); // For adding new item
+  const [searchTerm, setSearchTerm] = useState("");
+  const [newItemName, setNewItemName] = useState("");
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [editingItem, setEditingItem] = useState(null); // Stores the whole item being edited
+  const [editingItem, setEditingItem] = useState(null);
   const [editFormName, setEditFormName] = useState("");
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchRepairContents();
@@ -47,11 +49,14 @@ function RepairContentManager() {
   const fetchRepairContents = async () => {
     try {
       setError(null);
+      setLoading(true);
       const res = await getRepairContents();
       setRepairContents(res.data);
     } catch (error) {
       console.error("Lỗi lấy danh sách nội dung sửa chữa:", error);
       setError("Không thể tải danh sách nội dung sửa chữa.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -74,13 +79,16 @@ function RepairContentManager() {
     try {
       setError(null);
       setSuccess(null);
+      setLoading(true);
       await createRepairContent({ name: trimmedInput });
       setNewItemName("");
-      fetchRepairContents();
+      await fetchRepairContents();
       setSuccess("Thêm nội dung sửa chữa thành công!");
     } catch (error) {
       console.error("Lỗi tạo nội dung sửa chữa:", error);
       setError("Lỗi khi tạo nội dung sửa chữa.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,13 +118,16 @@ function RepairContentManager() {
     try {
       setError(null);
       setSuccess(null);
+      setLoading(true);
       await updateRepairContent(editingItem._id, { name: editFormName });
-      fetchRepairContents();
+      await fetchRepairContents();
       handleCloseEditDialog();
       setSuccess("Cập nhật nội dung sửa chữa thành công!");
     } catch (error) {
       console.error("Lỗi cập nhật nội dung sửa chữa:", error);
       setError("Lỗi khi cập nhật nội dung sửa chữa.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,12 +136,15 @@ function RepairContentManager() {
       try {
         setError(null);
         setSuccess(null);
+        setLoading(true);
         await deleteRepairContent(id);
-        fetchRepairContents();
+        await fetchRepairContents();
         setSuccess("Xóa nội dung sửa chữa thành công!");
       } catch (error) {
         console.error("Lỗi xoá nội dung sửa chữa:", error);
         setError("Lỗi khi xóa nội dung sửa chữa.");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -140,15 +154,42 @@ function RepairContentManager() {
   );
 
   return (
-    <Box sx={{ maxWidth: 1200, width: '100%', p: 5, backgroundColor: 'background.paper', borderRadius: 3, boxShadow: 3, mt: 8, ml: 30 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3, textAlign: 'center', color: 'primary.main' }}>
+    <Box
+      sx={{
+        maxWidth: 1200,
+        width: "100%",
+        p: 5,
+        backgroundColor: "background.paper",
+        borderRadius: 3,
+        boxShadow: 3,
+        mt: 8,
+        ml: 30,
+      }}
+    >
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{ mb: 3, textAlign: "center", color: "primary.main" }}
+      >
         Quản lý Nội dung Sửa chữa
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
 
-      <Box component="form" onSubmit={handleCreate} sx={{ display: "flex", gap: 2, mb: 3, alignItems: 'center' }}>
+      <Box
+        component="form"
+        onSubmit={handleCreate}
+        sx={{ display: "flex", gap: 2, mb: 3, alignItems: "center" }}
+      >
         <TextField
           label="Thêm nội dung sửa chữa mới"
           value={newItemName}
@@ -156,8 +197,15 @@ function RepairContentManager() {
           variant="outlined"
           fullWidth
           size="small"
+          disabled={loading}
         />
-        <Button variant="contained" color="primary" type="submit" startIcon={<Add />}>
+        <Button
+          variant="contained"
+          color="primary"
+          type="submit"
+          startIcon={<Add />}
+          disabled={loading}
+        >
           Thêm
         </Button>
       </Box>
@@ -170,58 +218,98 @@ function RepairContentManager() {
         fullWidth
         size="small"
         sx={{ mb: 3 }}
+        disabled={loading}
       />
 
-      <TableContainer component={Paper} elevation={3}>
-        <Table sx={{ minWidth: 650 }} aria-label="repair content table">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Tên nội dung sửa chữa</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Hành động</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredContents.length > 0 ? (
-              filteredContents.map((item) => (
-                <TableRow 
-                  key={item._id} 
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { backgroundColor: 'action.hover' } }}
-                >
-                  <TableCell component="th" scope="row">
-                    {item.name}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Chỉnh sửa">
-                      <IconButton onClick={() => handleOpenEditDialog(item)} color="primary" size="small">
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Xóa">
-                      <IconButton onClick={() => handleDelete(item._id)} color="error" size="small">
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper} elevation={3}>
+          <Table sx={{ minWidth: 650 }} aria-label="repair content table">
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                  <Typography variant="subtitle1">
-                    {searchTerm ? "Không tìm thấy nội dung phù hợp." : "Chưa có nội dung sửa chữa nào."}
-                  </Typography>
+                <TableCell sx={{ fontWeight: "bold" }}>
+                  Tên nội dung sửa chữa
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: "bold" }}>
+                  Hành động
                 </TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {filteredContents.length > 0 ? (
+                filteredContents.map((item) => (
+                  <TableRow
+                    key={item._id}
+                    sx={{
+                      "&:last-child td, &:last-child th": { border: 0 },
+                      "&:hover": { backgroundColor: "action.hover" },
+                    }}
+                  >
+                    <TableCell component="th" scope="row">
+                      {item.name}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Chỉnh sửa">
+                        <span>
+                          <IconButton
+                            onClick={() => handleOpenEditDialog(item)}
+                            color="primary"
+                            size="small"
+                            disabled={loading}
+                          >
+                            <Edit />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Xóa">
+                        <span>
+                          <IconButton
+                            onClick={() => handleDelete(item._id)}
+                            color="error"
+                            size="small"
+                            disabled={loading}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+                    <Typography variant="subtitle1">
+                      {searchTerm
+                        ? "Không tìm thấy nội dung phù hợp."
+                        : "Chưa có nội dung sửa chữa nào."}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseEditDialog} PaperProps={{ elevation: 5, sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ backgroundColor: 'primary.main', color: 'common.white' }}>Chỉnh sửa Nội dung Sửa chữa</DialogTitle>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseEditDialog}
+        PaperProps={{ elevation: 5, sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ backgroundColor: "primary.main", color: "common.white" }}>
+          Chỉnh sửa Nội dung Sửa chữa
+        </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>} 
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
           <TextField
             autoFocus
             margin="dense"
@@ -230,12 +318,17 @@ function RepairContentManager() {
             variant="outlined"
             value={editFormName}
             onChange={(e) => setEditFormName(e.target.value)}
-            error={!!error} // Highlight field if there's an error related to it
+            error={!!error}
+            disabled={loading}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseEditDialog} color="secondary">Hủy</Button>
-          <Button onClick={handleUpdate} variant="contained" color="primary">Cập nhật</Button>
+          <Button onClick={handleCloseEditDialog} color="secondary" disabled={loading}>
+            Hủy
+          </Button>
+          <Button onClick={handleUpdate} variant="contained" color="primary" disabled={loading}>
+            Cập nhật
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
