@@ -13,29 +13,31 @@ function getTaxSummary(cars, products) {
   function calculateTotalAfterTax(price, taxPercent = 0, quantity = 1) {
     return price * quantity * (1 + taxPercent / 100);
   }
-  cars.forEach(car => {
-    (car.repairContents || []).forEach(rc => {
-      const rcProducts = rc.products || [];
-      rcProducts.forEach(p => {
-        const prod = products.find(pr => pr._id === (p.product._id || p.product));
-        if (prod) {
-          const preTax = prod.price * p.quantity;
-          const postTax = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
-          if (prod.tax === 8) {
-            all8PreTax += preTax;
-            all8PostTax += postTax;
-          } else if (prod.tax === 10) {
-            all10PreTax += preTax;
-            all10PostTax += postTax;
-          }
+cars.forEach(car => {
+  (car.repairContents || []).forEach(rc => {
+    const rcProducts = rc.products || [];
+    rcProducts.forEach(p => {
+      const productId = typeof p.product === "object" && p.product !== null ? p.product._id : p.product;
+      const prod = products.find(pr => pr._id === productId);
+      if (prod) {
+        const preTax = prod.price * p.quantity;
+        const postTax = calculateTotalAfterTax(prod.price, prod.tax, p.quantity);
+        if (prod.tax === 8) {
+          all8PreTax += preTax;
+          all8PostTax += postTax;
+        } else if (prod.tax === 10) {
+          all10PreTax += preTax;
+          all10PostTax += postTax;
         }
-      });
-      if (rcProducts.length === 0 && rc.servicePrice) {
-        all8PreTax += rc.servicePrice;
-        all8PostTax += calculateTotalAfterTax(rc.servicePrice, 8, 1);
       }
     });
+    if (rcProducts.length === 0 && rc.servicePrice) {
+      all8PreTax += rc.servicePrice;
+      all8PostTax += calculateTotalAfterTax(rc.servicePrice, 8, 1);
+    }
   });
+});
+
   const allVat8 = all8PostTax - all8PreTax;
   const allVat10 = all10PostTax - all10PreTax;
   const allPreTax = all8PreTax + all10PreTax;

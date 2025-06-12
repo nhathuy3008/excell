@@ -1,9 +1,8 @@
-import axios from "axios";
+// src/api/carApi.js
+import axiosClient from "./axiosClient";
 
-const API_URL = "https://excel-ndpr.onrender.com/api/cars";
-
-export const getCars = () => axios.get(`${API_URL}/`);
-export const getCarById = (id) => axios.get(`${API_URL}/${id}`);
-export const createCar = (data) => axios.post(`${API_URL}/create`, data);
-export const updateCar = (id, data) => axios.put(`${API_URL}/${id}`, data);
-export const deleteCar = (id) => axios.delete(`${API_URL}/${id}`);
+export const getCars = () => axiosClient.get("/cars");
+export const getCarById = (id) => axiosClient.get(`/cars/${id}`);
+export const createCar = (data) => axiosClient.post("/cars/create", data);
+export const updateCar = (id, data) => axiosClient.put(`/cars/${id}`, data);
+export const deleteCar = (id) => axiosClient.delete(`/cars/${id}`);

@@ -1,5 +1,5 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const styles = {
   appbar: {
@@ -34,8 +34,8 @@ const styles = {
   nav: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-evenly", // Thêm dòng này để dàn đều các mục menu
-    width: "100%" // Đảm bảo nav chiếm toàn bộ chiều ngang còn lại
+    justifyContent: "space-evenly",
+    width: "100%"
   },
   navLink: {
     color: "white",
@@ -57,6 +57,24 @@ const styles = {
 };
 
 const AppBar = () => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem("token");
+  const tokenExpiry = localStorage.getItem("token_expiry");
+
+  useEffect(() => {
+    if (token && tokenExpiry && Date.now() > Number(tokenExpiry)) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("token_expiry");
+      navigate("/login");
+    }
+  }, [token, tokenExpiry, navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("token_expiry");
+    navigate("/login");
+  };
+
   return (
     <header style={styles.appbar}>
       <div style={styles.logo}>
@@ -71,6 +89,10 @@ const AppBar = () => {
         <Link to="/catecar" style={styles.navLink}>Thêm Loại Xe</Link>
         <Link to="/repair-contents" style={styles.navLink}>Nội dung sửa chữa</Link>
         <Link to="/cars" style={styles.navLink}>Thêm Xe</Link>
+
+        {token && (
+          <button style={styles.btn} onClick={handleLogout}>Đăng xuất</button>
+        )}
       </div>
     </header>
   );
