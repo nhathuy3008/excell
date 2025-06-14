@@ -65,6 +65,7 @@ function CarManager() {
   const [statuses, setStatuses] = useState([]);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [searchPlate, setSearchPlate] = useState('');
+  const [searchCarType, setSearchCarType] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     plateNumber: '',
@@ -410,12 +411,27 @@ function CarManager() {
                 }}
                 className="search-input"
               />
+              <Select
+                className="search-car-type"
+                value={cateCars.find(c => c._id === searchCarType) || null}
+                onChange={selected => {
+                  setSearchCarType(selected ? selected._id : '');
+                  if (activeTab !== 'list') setActiveTab('list');
+                }}
+                options={cateCars}
+                getOptionLabel={option => option.name}
+                getOptionValue={option => option._id}
+                placeholder="-- Loại xe --"
+                isClearable
+                styles={{ container: base => ({ ...base, minWidth: 180, maxWidth: 220 }) }}
+              />
               <button
                 onClick={() => {
                   const filteredCars = cars.filter(car =>
-                    car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
+                    car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase()) &&
+                    (searchCarType === '' || (car.carType && (car.carType._id === searchCarType || car.carType === searchCarType)))
                   );
-                  const carsToExport = searchPlate.trim() ? filteredCars : cars;
+                  const carsToExport = (searchPlate.trim() || searchCarType) ? filteredCars : cars;
                   exportToExcel(carsToExport, repairContents, products);
                 }}
                 className="export-btn"
@@ -630,13 +646,15 @@ function CarManager() {
     <h4>
       Tổng số xe: {
         cars.filter(car =>
-          car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
+          car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase()) &&
+          (searchCarType === '' || (car.carType && (car.carType._id === searchCarType || car.carType === searchCarType)))
         ).length
       }
     </h4>
     {cars
       .filter(car =>
-        car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase())
+        car.plateNumber.toLowerCase().includes(searchPlate.toLowerCase()) &&
+        (searchCarType === '' || (car.carType && (car.carType._id === searchCarType || car.carType === searchCarType)))
       )
       .map((car, index) => {
         const isExpanded = expandedCarIds.includes(car._id);
@@ -1293,6 +1311,194 @@ function CarManager() {
           .status-item > *,
           .solution-item > * {
             max-width: 100%;
+          }
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .car-manager {
+            padding: 0.5rem;
+            margin-top: 60px;
+          }
+
+          .header {
+            flex-direction: column;
+            gap: 1rem;
+            padding: 0.75rem;
+          }
+
+          .header h2 {
+            font-size: 1.5rem;
+            text-align: center;
+          }
+
+          .actions {
+            flex-direction: column;
+            width: 100%;
+          }
+
+          .search-input {
+            width: 100%;
+          }
+
+          .export-btn {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .tabs {
+            flex-direction: column;
+            padding: 0.75rem;
+          }
+
+          .tab-button {
+            width: 100%;
+            text-align: center;
+          }
+
+          .tab-content {
+            padding: 2.5rem;
+          }
+
+          .car-box-header {
+            flex-direction: column;
+            gap: 0.75rem;
+          }
+
+          .car-box-title {
+            font-size: 1rem;
+          }
+
+          .car-box-actions {
+            width: 100%;
+            justify-content: space-between;
+          }
+
+          .car-box-actions button {
+            flex: 1;
+            margin: 0;
+          }
+
+          .car-box-detail {
+            padding: 0.75rem;
+            overflow-x: auto;
+          }
+
+          table {
+            font-size: 0.9rem;
+          }
+
+          th, td {
+            padding: 0.5rem;
+            white-space: nowrap;
+          }
+
+          .form-group {
+            margin-bottom: 1rem;
+          }
+
+          .form-group label {
+            margin-bottom: 0.5rem;
+          }
+
+          .repair-content-item {
+            padding: 1rem;
+          }
+
+          .product-item {
+            padding: 1rem;
+          }
+
+          .product-header {
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .product-header > * {
+            width: 100%;
+            min-width: unset;
+          }
+
+          .status-item,
+          .solution-item {
+            flex-direction: column;
+            gap: 0.5rem;
+          }
+
+          .status-item > *,
+          .solution-item > * {
+            width: 100%;
+            min-width: unset;
+          }
+
+          .add-btn,
+          .remove-btn,
+          .submit-btn,
+          .cancel-btn {
+            width: 100%;
+            justify-content: center;
+            margin: 0.5rem 0;
+          }
+
+          /* Adjust react-select for mobile */
+          :global(.react-select__control) {
+            min-height: 38px !important;
+          }
+
+          :global(.react-select__menu) {
+            font-size: 0.9rem;
+          }
+
+          .repair-content-item > div:first-child {
+            margin-right: 8px;
+          }
+
+          .car-box-detail ul {
+            padding-left: 16px;
+            margin: 0;
+            word-break: break-word;
+            white-space: normal;
+            max-width: 180px;
+          }
+          .car-box-detail li {
+            word-break: break-word;
+            white-space: normal;
+            font-size: 0.95em;
+          }
+
+          .search-car-type {
+            width: 100%;
+            min-width: 0;
+            margin-top: 0.5rem;
+          }
+        }
+
+        /* Small Mobile Devices */
+        @media (max-width: 480px) {
+          .car-manager {
+            padding: 0.25rem;
+          }
+
+          .header h2 {
+            font-size: 1.3rem;
+          }
+
+          .car-box-title {
+            font-size: 0.9rem;
+          }
+
+          table {
+            font-size: 0.8rem;
+          }
+
+          th, td {
+            padding: 0.4rem;
+          }
+
+          .form-group input,
+          .form-group select {
+            font-size: 0.9rem;
+            padding: 0.6rem 0.8rem;
           }
         }
 

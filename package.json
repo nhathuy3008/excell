@@ -23,6 +23,7 @@
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.1",
     "react-select": "^5.10.1",
+    "styled-components": "^6.1.19",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

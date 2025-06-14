@@ -5,7 +5,6 @@ import {
   deleteUnit,
   updateUnit,
 } from "../api/unitApi";
-
 import {
   Box,
   Button,
@@ -20,6 +19,15 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  CardActions,
+  Switch,
+  Stack,
+  Container,
+  Grid,
 } from "@mui/material";
 import {
   Edit,
@@ -29,13 +37,16 @@ import {
   AddCircleOutline,
 } from "@mui/icons-material";
 
-function UnitManager() {
+export default function UnitManager() {
   const [units, setUnits] = useState([]);
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     fetchUnits();
@@ -61,7 +72,7 @@ function UnitManager() {
     try {
       setError(null);
       setLoading(true);
-      await createUnit(name.trim()); // ✅ đã sửa chỗ này
+      await createUnit(name.trim());
       setName("");
       await fetchUnits();
     } catch (err) {
@@ -100,7 +111,7 @@ function UnitManager() {
     try {
       setError(null);
       setLoading(true);
-      await updateUnit(editingId, editingName.trim()); // ✅ đã sửa chỗ này
+      await updateUnit(editingId, editingName.trim());
       setEditingId(null);
       setEditingName("");
       await fetchUnits();
@@ -119,23 +130,24 @@ function UnitManager() {
   };
 
   return (
-    <Box
-      sx={{
-        maxWidth: 1200,
-        width: "100%",
-        p: 5,
-        backgroundColor: "background.paper",
-        borderRadius: 3,
-        boxShadow: 3,
-        mt: 8,
-        ml: 30,
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        mt: 10, 
+        mb: 4,
+        ml: { xs: 0, md: '370px' },
+        width: { xs: '100%', md: '100%' }
       }}
     >
       <Typography
-        variant="h4"
-        component="h1"
-        gutterBottom
-        sx={{ mb: 4, textAlign: "center", fontWeight: "bold", color: "primary.main" }}
+        variant="h5"
+        align="center"
+        sx={{ 
+          fontWeight: "bold", 
+          color: "primary.main", 
+          mb: { xs: 2, sm: 3 },
+          fontSize: { xs: '1.25rem', sm: '1.5rem' }
+        }}
       >
         Quản lý Đơn vị tính
       </Typography>
@@ -145,58 +157,119 @@ function UnitManager() {
           {error}
         </Alert>
       )}
+      <Grid container spacing={2} component="form" onSubmit={handleCreate} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={8}>
+          <TextField
+            fullWidth
+            label="Tên đơn vị mới"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            size="small"
+            disabled={loading}
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                height: { xs: '40px', sm: '48px' }
+              }
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Button
+            type="submit"
+            variant="contained"
+            startIcon={<AddCircleOutline />}
+            disabled={loading}
+            fullWidth
+            sx={{ 
+              height: { xs: '40px', sm: '48px' },
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
+            Thêm mới
+          </Button>
+        </Grid>
+      </Grid>
 
-      <Box
-        component="form"
-        onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 1.5, mb: 4, alignItems: "center" }}
-      >
-        <TextField
-          fullWidth
-          label="Tên đơn vị mới"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          variant="outlined"
-          size="small"
-          disabled={loading}
-        />
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit"
-          startIcon={<AddCircleOutline />}
-          sx={{ py: "9px", px: 2.5, whiteSpace: "nowrap" }}
-          disabled={loading}
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : units.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          Chưa có đơn vị nào.
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {units.map((unit) => (
+            <Card key={unit._id} variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent sx={{ pb: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Đơn vị tính
+                </Typography>
+                {editingId === unit._id ? (
+                  <TextField
+                    fullWidth
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    size="small"
+                    autoFocus
+                    disabled={loading}
+                    sx={{ mt: 1 }}
+                  />
+                ) : (
+                  <Typography variant="body1" sx={{ mt: 1, fontWeight: 500 }}>
+                    {unit.name}
+                  </Typography>
+                )}
+              </CardContent>
+              <CardActions sx={{ justifyContent: "space-between", px: 2, pb: 2 }}>
+                <Stack direction="row" spacing={1}>
+                  {editingId === unit._id ? (
+                    <>
+                      <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                        <Save fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </>
+                  ) : (
+                    <>
+                      <IconButton size="small" onClick={() => handleEdit(unit)} disabled={loading}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(unit._id)} disabled={loading}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
+                </Stack>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Paper 
+          elevation={2} 
+          sx={{ 
+            overflowX: "auto",
+            borderRadius: 2,
+            '& .MuiTableCell-root': {
+              py: { xs: 1, sm: 1.5 }
+            }
+          }}
         >
-          Thêm mới
-        </Button>
-      </Box>
-
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ backgroundColor: "grey.100" }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: "600", py: 1.5, px: 2 }}>Tên đơn vị</TableCell>
-              <TableCell align="right" sx={{ fontWeight: "600", py: 1.5, px: 2 }}>
-                Hành động
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
+          <Table>
+            <TableHead sx={{ backgroundColor: 'grey.50' }}>
               <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 4 }}>
-                  <CircularProgress />
-                </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Tên đơn vị</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>Hành động</TableCell>
               </TableRow>
-            ) : units.length > 0 ? (
-              units.map((unit) => (
-                <TableRow
-                  key={unit._id}
-                  hover
-                  sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
-                >
-                  <TableCell sx={{ py: 1, px: 2 }}>
+            </TableHead>
+            <TableBody>
+              {units.map((unit) => (
+                <TableRow key={unit._id} hover>
+                  <TableCell>
                     {editingId === unit._id ? (
                       <TextField
                         fullWidth
@@ -204,75 +277,42 @@ function UnitManager() {
                         onChange={(e) => setEditingName(e.target.value)}
                         size="small"
                         autoFocus
-                        variant="standard"
-                        sx={{ input: { py: 0.5 } }}
                         disabled={loading}
+                        variant="standard"
                       />
                     ) : (
-                      unit.name
+                      <Typography sx={{ fontWeight: 500 }}>{unit.name}</Typography>
                     )}
                   </TableCell>
-                  <TableCell align="right" sx={{ py: 1, px: 2 }}>
-                    {editingId === unit._id ? (
-                      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                        <IconButton
-                          color="success"
-                          onClick={handleUpdate}
-                          size="small"
-                          title="Lưu"
-                          disabled={loading}
-                        >
-                          <Save fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          color="inherit"
-                          onClick={handleCancelEdit}
-                          size="small"
-                          title="Huỷ"
-                          disabled={loading}
-                        >
-                          <Cancel fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ) : (
-                      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleEdit(unit)}
-                          size="small"
-                          title="Chỉnh sửa"
-                          disabled={loading}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(unit._id)}
-                          size="small"
-                          title="Xoá"
-                          disabled={loading}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    )}
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {editingId === unit._id ? (
+                        <>
+                          <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                            <Save fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
+                            <Cancel fontSize="small" />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <>
+                          <IconButton size="small" onClick={() => handleEdit(unit)} disabled={loading}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDelete(unit._id)} disabled={loading}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                    </Stack>
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Chưa có đơn vị nào. Vui lòng thêm mới.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
-    </Box>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+    </Container>
   );
 }
-
-export default UnitManager;

@@ -1,11 +1,5 @@
-import React, { useEffect, useState } from "react";
-import {
-  getCateCars,
-  createCateCar,
-  updateCateCar,
-  deleteCateCar,
-} from "../api/cateCarApi";
-
+import React, { useEffect, useState, useCallback } from "react";
+import { getCateCars, createCateCar, updateCateCar, deleteCateCar } from "../api/cateCarApi";
 import {
   Box,
   Button,
@@ -14,196 +8,202 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   Paper,
   IconButton,
+  Container,
+  Grid,
+  Alert,
+  CircularProgress,
+  useTheme,
+  useMediaQuery,
+  Stack,
+  Card,
+  CardContent,
+  CardActions,
+  InputAdornment,
 } from "@mui/material";
+import { Edit, Delete, Save, AddCircleOutline, Search } from "@mui/icons-material";
 
-import { Edit, Delete, Save, Cancel, AddCircleOutline } from "@mui/icons-material"; // Added AddCircleOutline
+const initialFormState = { name: "" };
 
 function CateCarManager() {
   const [cateCars, setCateCars] = useState([]);
-  const [form, setForm] = useState({ name: "" });
-  const [editingId, setEditingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({ name: "" }); 
-const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState(initialFormState);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const fetchCateCars = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getCateCars();
+      setCateCars(res.data);
+    } catch (err) {
+      setError("Lỗi tải danh mục xe.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchCateCars();
-  }, []);
+  }, [fetchCateCars]);
 
-  const fetchCateCars = async () => {
-  try {
-    setLoading(true); // Bắt đầu tải
-    const res = await getCateCars();
-    setCateCars(res.data);
-  } catch (error) {
-    console.error("Lỗi lấy danh mục xe:", error);
-  } finally {
-    setLoading(false); // Dừng tải
-  }
-};
-
-
-  const handleChange = (e, isEdit = false) => {
+  const handleFormChange = (e) => {
     const { name, value } = e.target;
-    if (isEdit) {
-      setEditingForm({ ...editingForm, [name]: value });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    try {
-      await createCateCar(form);
-      setForm({ name: "" });
-      fetchCateCars();
-    } catch (error) {
-      console.error("Lỗi tạo danh mục xe:", error);
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleEdit = (cateCar) => {
-    setEditingId(cateCar._id);
-    setEditingForm({ name: cateCar.name });
+    setIsEditMode(true);
+    setFormData(cateCar);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleUpdate = async (e) => {
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setFormData(initialFormState);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!editingForm.name.trim()) return;
+    if (!formData.name) {
+      setError("Tên danh mục là bắt buộc.");
+      return;
+    }
+    setLoading(true);
     try {
-      await updateCateCar(editingId, editingForm);
-      setEditingId(null);
-      setEditingForm({ name: "" }); 
-      fetchCateCars();
-    } catch (error) {
-      console.error("Lỗi cập nhật danh mục xe:", error);
+      if (isEditMode) {
+        await updateCateCar(formData._id, formData);
+      } else {
+        await createCateCar(formData);
+      }
+      handleCancelEdit();
+      await fetchCateCars();
+    } catch (err) {
+      setError(isEditMode ? "Lỗi cập nhật danh mục." : "Lỗi thêm danh mục mới.");
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    // Consider adding a confirmation dialog
-    try {
-      await deleteCateCar(id);
-      fetchCateCars();
-    } catch (error) {
-      console.error("Lỗi xoá danh mục xe:", error);
+    if (window.confirm("Bạn có chắc chắn muốn xoá danh mục này?")) {
+      setLoading(true);
+      try {
+        await deleteCateCar(id);
+        if (isEditMode && formData._id === id) {
+          handleCancelEdit();
+        }
+        await fetchCateCars();
+      } catch (err) {
+        setError("Lỗi xoá danh mục.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingForm({ name: "" });
-  }
+  const filteredCateCars = cateCars.filter((c) =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const renderForm = () => (
+    <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2, mb: 4, border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        {isEditMode ? "Chỉnh sửa Danh mục" : "Thêm Danh mục mới"}
+      </Typography>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} sm>
+          <TextField fullWidth label="Tên danh mục *" name="name" value={formData.name} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm="auto">
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" startIcon={isEditMode ? <Save /> : <AddCircleOutline />}>
+              {isEditMode ? "Lưu" : "Thêm"}
+            </Button>
+            {isEditMode && <Button onClick={handleCancelEdit} variant="outlined">Huỷ</Button>}
+          </Stack>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+
+  const renderReadOnlyCard = (cateCar) => (
+    <Card key={cateCar._id} variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent>
+        <Typography variant="h6">{cateCar.name}</Typography>
+      </CardContent>
+      <CardActions sx={{ justifyContent: "flex-end" }}>
+        <IconButton size="small" onClick={() => handleEdit(cateCar)}><Edit fontSize="small" /></IconButton>
+        <IconButton size="small" color="error" onClick={() => handleDelete(cateCar._id)}><Delete fontSize="small" /></IconButton>
+      </CardActions>
+    </Card>
+  );
+
+  const renderReadOnlyRow = (cateCar) => (
+    <TableRow key={cateCar._id} hover>
+      <TableCell>{cateCar.name}</TableCell>
+      <TableCell align="right">
+        <IconButton onClick={() => handleEdit(cateCar)}><Edit fontSize="small" /></IconButton>
+        <IconButton onClick={() => handleDelete(cateCar._id)}><Delete fontSize="small" /></IconButton>
+      </TableCell>
+    </TableRow>
+  );
 
   return (
-    <Box sx={{ maxWidth: 1200, width: '100%', p: 5, backgroundColor: 'background.paper', borderRadius: 3, boxShadow: 3, mt: 8, ml: 30 }}>
-      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4, textAlign: 'center', fontWeight: 'bold', color: 'primary.main' }}>
+    <Container maxWidth="lg" sx={{ mt: 8, mb: 4, ml: { xs: 0, md: '370px' }, width: { xs: '100%', md: '100%' } }}>
+      <Typography variant="h5" align="center" sx={{ fontWeight: "bold", color: "primary.main", mb: 3 }}>
         Quản lý Danh mục xe
       </Typography>
 
-      <Box
-        component="form"
-        onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 1.5, mb: 4, alignItems: 'center' }}
-      >
-        <TextField
-          name="name"
-          label="Tên danh mục xe mới"
-          value={form.name}
-          onChange={handleChange}
-          variant="outlined"
-          fullWidth
-          required
-          size="small"
-        />
-        <Button variant="contained" color="primary" type="submit" startIcon={<AddCircleOutline />} sx={{ py: '9px', px: 2.5, whiteSpace: 'nowrap' }}>
-          Thêm mới
-        </Button>
-      </Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ backgroundColor: 'grey.100' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Tên danh mục xe</TableCell>
-              <TableCell align="right" sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Hành động</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {cateCars.map((c) => (
-              <TableRow key={c._id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                <TableCell sx={{ py: 1, px: 2 }}>
-                  {editingId === c._id ? (
-                    <TextField
-                      name="name"
-                      value={editingForm.name}
-                      onChange={(e) => handleChange(e, true)}
-                      size="small"
-                      fullWidth
-                      required
-                      autoFocus
-                      variant="standard"
-                      sx={{ input: { py: 0.5 } }}
-                    />
-                  ) : (
-                    c.name
-                  )}
-                </TableCell>
-                <TableCell align="right" sx={{ py: 1, px: 2 }}>
-                  {editingId === c._id ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5}}>
-                      <IconButton color="success" onClick={handleUpdate} size="small" title="Lưu">
-                        <Save fontSize="small"/>
-                      </IconButton>
-                      <IconButton
-                        color="inherit"
-                        onClick={handleCancelEdit}
-                        size="small" 
-                        title="Huỷ"
-                      >
-                        <Cancel fontSize="small"/>
-                      </IconButton>
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5}}>
-                      <IconButton color="primary" onClick={() => handleEdit(c)} size="small" title="Chỉnh sửa">
-                        <Edit fontSize="small"/>
-                      </IconButton>
-                      <IconButton color="error" onClick={() => handleDelete(c._id)} size="small" title="Xoá">
-                        <Delete fontSize="small"/>
-                      </IconButton>
-                    </Box>
-                  )}
-                </TableCell>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth label="Tìm kiếm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><Search /></InputAdornment>) }}/>
+        </Grid>
+      </Grid>
+
+      {renderForm()}
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+      ) : filteredCateCars.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          {cateCars.length > 0 ? "Không tìm thấy danh mục." : "Chưa có danh mục nào."}
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {filteredCateCars.map(renderReadOnlyCard)}
+        </Stack>
+      ) : (
+        <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: 'grey.50' }}>
+              <TableRow>
+                <TableCell>Tên danh mục</TableCell>
+                <TableCell align="right">Hành động</TableCell>
               </TableRow>
-            ))}
-            {loading ? (
-  <TableRow>
-    <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-      <Typography variant="body2" color="text.secondary">
-        Vui lòng đợi một chút, dữ liệu đang được tải...
-      </Typography>
-    </TableCell>
-  </TableRow>
-) : cateCars.length === 0 && (
-  <TableRow>
-    <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-      <Typography variant="body2" color="text.secondary">
-        Chưa có danh mục xe nào. Vui lòng thêm mới.
-      </Typography>
-    </TableCell>
-  </TableRow>
-)}
-
-          </TableBody>
-        </Table>
-      </Paper>
-    </Box>
+            </TableHead>
+            <TableBody>
+              {filteredCateCars.map(renderReadOnlyRow)}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Container>
   );
 }
 

@@ -18,33 +18,52 @@ import {
   TableRow,
   Paper,
   IconButton,
-  Alert,
   CircularProgress,
+  Alert,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  CardActions,
+  Stack,
+  Container,
+  Grid,
+  InputAdornment,
 } from "@mui/material";
-import { Edit, Delete, Save, Cancel, AddCircleOutline, Search } from "@mui/icons-material";
+import {
+  Edit,
+  Delete,
+  Save,
+  Cancel,
+  AddCircleOutline,
+  Search,
+} from "@mui/icons-material";
 
-function SolutionManager() {
+export default function SolutionManager() {
   const [solutions, setSolutions] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [newName, setNewName] = useState("");
+  const [name, setName] = useState("");
   const [editingId, setEditingId] = useState(null);
-  const [editingForm, setEditingForm] = useState({ name: "" });
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
-  const [loading, setLoading] = useState(false); // Loading khi fetch data
-  const [loadingSubmit, setLoadingSubmit] = useState(false); // Loading khi submit (thêm, sửa, xoá)
+  const [editingName, setEditingName] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     fetchSolutions();
   }, []);
 
   const fetchSolutions = async () => {
-    setLoading(true);
     try {
+      setError(null);
+      setLoading(true);
       const res = await getSolutions();
       setSolutions(res.data);
     } catch (err) {
-      console.error("Lỗi tải giải pháp:", err);
-      setFeedback({ type: "error", message: "Không thể tải danh sách giải pháp." });
+      setError("Lỗi tải danh sách giải pháp.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -52,82 +71,65 @@ function SolutionManager() {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    const trimmedName = newName.trim();
-    if (!trimmedName) {
-      setFeedback({ type: "warning", message: "Tên giải pháp không được để trống." });
-      return;
-    }
-
-    const exists = solutions.some(
-      (s) => s.name.toLowerCase() === trimmedName.toLowerCase()
-    );
-    if (exists) {
-      setFeedback({ type: "error", message: "Giải pháp đã tồn tại!" });
-      return;
-    }
-
-    setLoadingSubmit(true);
+    if (!name.trim()) return;
     try {
-      await createSolution({ name: trimmedName });
-      setNewName("");
+      setError(null);
+      setLoading(true);
+      await createSolution({ name: name.trim() });
+      setName("");
       await fetchSolutions();
-      setFeedback({ type: "success", message: "Thêm giải pháp thành công!" });
     } catch (err) {
-      console.error("Lỗi tạo giải pháp:", err);
-      setFeedback({ type: "error", message: "Lỗi khi thêm giải pháp." });
+      setError("Lỗi thêm giải pháp mới.");
+      console.error(err);
     } finally {
-      setLoadingSubmit(false);
-    }
-  };
-
-  const handleEdit = (solution) => {
-    setEditingId(solution._id);
-    setEditingForm({ name: solution.name });
-    setFeedback({ type: "", message: "" });
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    const trimmedName = editingForm.name.trim();
-    if (!trimmedName) {
-      setFeedback({ type: "warning", message: "Tên giải pháp không được để trống." });
-      return;
-    }
-
-    setLoadingSubmit(true);
-    try {
-      await updateSolution(editingId, { name: trimmedName });
-      setEditingId(null);
-      setEditingForm({ name: "" });
-      await fetchSolutions();
-      setFeedback({ type: "success", message: "Cập nhật giải pháp thành công!" });
-    } catch (err) {
-      console.error("Lỗi cập nhật giải pháp:", err);
-      setFeedback({ type: "error", message: "Lỗi khi cập nhật giải pháp." });
-    } finally {
-      setLoadingSubmit(false);
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    // Có thể thêm confirm dialog nếu muốn
-    setLoadingSubmit(true);
+    if (window.confirm("Bạn có chắc chắn muốn xoá giải pháp này?")) {
+      try {
+        setError(null);
+        setLoading(true);
+        await deleteSolution(id);
+        await fetchSolutions();
+      } catch (err) {
+        setError("Lỗi xoá giải pháp.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleEdit = (solution) => {
+    setError(null);
+    setEditingId(solution._id);
+    setEditingName(solution.name);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingName.trim()) return;
     try {
-      await deleteSolution(id);
+      setError(null);
+      setLoading(true);
+      await updateSolution(editingId, { name: editingName.trim() });
+      setEditingId(null);
+      setEditingName("");
       await fetchSolutions();
-      setFeedback({ type: "success", message: "Xoá giải pháp thành công!" });
     } catch (err) {
-      console.error("Lỗi xoá giải pháp:", err);
-      setFeedback({ type: "error", message: "Lỗi khi xoá giải pháp." });
+      setError("Lỗi cập nhật giải pháp.");
+      console.error(err);
     } finally {
-      setLoadingSubmit(false);
+      setLoading(false);
     }
   };
 
   const handleCancelEdit = () => {
+    setError(null);
     setEditingId(null);
-    setEditingForm({ name: "" });
-    setFeedback({ type: "", message: "" });
+    setEditingName("");
   };
 
   const filteredSolutions = solutions.filter((s) =>
@@ -135,201 +137,240 @@ function SolutionManager() {
   );
 
   return (
-    <Box
+    <Container
+      maxWidth="lg"
       sx={{
-        maxWidth: 1200,
-        width: "100%",
-        p: 5,
-        backgroundColor: "background.paper",
-        borderRadius: 3,
-        boxShadow: 3,
-        mt: 8,
-        ml: 30,
-        position: "relative",
+        mt: 10,
+        mb: 4,
+        ml: { xs: 0, md: "350px" },
+        width: { xs: "100%", md: "100%" },
       }}
     >
       <Typography
-        variant="h4"
-        component="h1"
-        gutterBottom
-        sx={{ mb: 4, textAlign: "center", fontWeight: "bold", color: "primary.main" }}
+        variant="h5"
+        align="center"
+        sx={{
+          fontWeight: "bold",
+          color: "primary.main",
+          mb: { xs: 2, sm: 3 },
+          fontSize: { xs: "1.25rem", sm: "1.5rem" },
+        }}
       >
         Quản lý Giải pháp
       </Typography>
 
-      {feedback.message && (
-        <Alert
-          severity={feedback.type}
-          sx={{ mb: 2 }}
-          onClose={() => setFeedback({ type: "", message: "" })}
-        >
-          {feedback.message}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
         </Alert>
       )}
 
-      <Box
-        component="form"
-        onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 1.5, mb: 2, alignItems: "center" }}
-      >
-        <TextField
-          label="Tên giải pháp mới"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          variant="outlined"
-          fullWidth
-          size="small"
-          disabled={loadingSubmit}
-        />
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit"
-          startIcon={loadingSubmit ? <CircularProgress size={20} color="inherit" /> : <AddCircleOutline />}
-          sx={{ py: "9px", px: 2.5, whiteSpace: "nowrap" }}
-          disabled={loadingSubmit}
-        >
-          Thêm mới
-        </Button>
-      </Box>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Tìm kiếm giải pháp"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Grid>
+      </Grid>
 
-      <TextField
-        label="Tìm kiếm giải pháp"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        variant="outlined"
-        fullWidth
-        size="small"
-        sx={{ mb: 4 }}
-        disabled={loadingSubmit || loading}
-        InputProps={{
-          startAdornment: <Search color="action" sx={{ mr: 1 }} />,
-        }}
-      />
-
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden", position: "relative" }}>
-        {loading && (
-          <Box
+      <Grid container spacing={2} component="form" onSubmit={handleCreate} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={8}>
+          <TextField
+            fullWidth
+            label="Tên giải pháp mới"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            size="small"
+            disabled={loading}
             sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              bgcolor: "rgba(255,255,255,0.7)",
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              "& .MuiOutlinedInput-root": {
+                height: { xs: "40px", sm: "48px" },
+              },
+            }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Button
+            type="submit"
+            variant="contained"
+            startIcon={<AddCircleOutline />}
+            disabled={loading}
+            fullWidth
+            sx={{
+              height: { xs: "40px", sm: "48px" },
+              fontSize: { xs: "0.875rem", sm: "1rem" },
             }}
           >
-            <CircularProgress />
-          </Box>
-        )}
+            Thêm mới
+          </Button>
+        </Grid>
+      </Grid>
 
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ backgroundColor: "grey.100" }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: "600", py: 1.5, px: 2 }}>Tên giải pháp</TableCell>
-              <TableCell align="right" sx={{ fontWeight: "600", py: 1.5, px: 2 }}>
-                Hành động
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredSolutions.map((s) => (
-              <TableRow
-                key={s._id}
-                hover
-                sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
-              >
-                <TableCell sx={{ py: 1, px: 2 }}>
-                  {editingId === s._id ? (
-                    <TextField
-                      name="name"
-                      value={editingForm.name}
-                      onChange={(e) =>
-                        setEditingForm({ ...editingForm, name: e.target.value })
-                      }
-                      size="small"
-                      fullWidth
-                      required
-                      autoFocus
-                      variant="standard"
-                      sx={{ input: { py: 0.5 } }}
-                      disabled={loadingSubmit}
-                    />
-                  ) : (
-                    s.name
-                  )}
-                </TableCell>
-                <TableCell align="right" sx={{ py: 1, px: 2 }}>
-                  {editingId === s._id ? (
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                      <IconButton
-                        color="success"
-                        onClick={handleUpdate}
-                        size="small"
-                        title="Lưu"
-                        disabled={loadingSubmit}
-                      >
-                        {loadingSubmit ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : (
-                          <Save fontSize="small" />
-                        )}
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : filteredSolutions.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          {solutions.length > 0
+            ? "Không tìm thấy giải pháp phù hợp."
+            : "Chưa có giải pháp nào."}
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {filteredSolutions.map((solution) => (
+            <Card key={solution._id} variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent sx={{ pb: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Giải pháp
+                </Typography>
+                {editingId === solution._id ? (
+                  <TextField
+                    fullWidth
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    size="small"
+                    autoFocus
+                    disabled={loading}
+                    sx={{ mt: 1 }}
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    value={solution.name}
+                    variant="standard"
+                    sx={{
+                      mt: 1,
+                      "& .MuiInput-input": {
+                        fontWeight: 500,
+                        cursor: "default",
+                      },
+                    }}
+                    InputProps={{
+                      readOnly: true,
+                      disableUnderline: true,
+                    }}
+                  />
+                )}
+              </CardContent>
+              <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
+                <Stack direction="row" spacing={1}>
+                  {editingId === solution._id ? (
+                    <>
+                      <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                        <Save fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        color="inherit"
-                        onClick={handleCancelEdit}
-                        size="small"
-                        title="Huỷ"
-                        disabled={loadingSubmit}
-                      >
+                      <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
                         <Cancel fontSize="small" />
                       </IconButton>
-                    </Box>
+                    </>
                   ) : (
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleEdit(s)}
-                        size="small"
-                        title="Chỉnh sửa"
-                        disabled={loadingSubmit}
-                      >
+                    <>
+                      <IconButton size="small" onClick={() => handleEdit(solution)} disabled={loading}>
                         <Edit fontSize="small" />
                       </IconButton>
-                      <IconButton
-                        color="error"
-                        onClick={() => handleDelete(s._id)}
-                        size="small"
-                        title="Xoá"
-                        disabled={loadingSubmit}
-                      >
+                      <IconButton size="small" color="error" onClick={() => handleDelete(solution._id)} disabled={loading}>
                         <Delete fontSize="small" />
                       </IconButton>
-                    </Box>
+                    </>
                   )}
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredSolutions.length === 0 && (
+                </Stack>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Paper
+          elevation={2}
+          sx={{
+            overflowX: "auto",
+            borderRadius: 2,
+            "& .MuiTableCell-root": {
+              py: { xs: 1, sm: 1.5 },
+            },
+          }}
+        >
+          <Table>
+            <TableHead sx={{ backgroundColor: "grey.50" }}>
               <TableRow>
-                <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {solutions.length > 0
-                      ? "Không tìm thấy giải pháp phù hợp."
-                      : "Chưa có giải pháp nào. Vui lòng thêm mới."}
-                  </Typography>
+                <TableCell sx={{ fontWeight: 600 }}>Tên giải pháp</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>
+                  Hành động
                 </TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
-    </Box>
+            </TableHead>
+            <TableBody>
+              {filteredSolutions.map((solution) => (
+                <TableRow key={solution._id} hover>
+                  <TableCell>
+                    {editingId === solution._id ? (
+                      <TextField
+                        fullWidth
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        size="small"
+                        autoFocus
+                        disabled={loading}
+                        variant="standard"
+                      />
+                    ) : (
+                      <TextField
+                        fullWidth
+                        value={solution.name}
+                        variant="standard"
+                        InputProps={{
+                          readOnly: true,
+                          disableUnderline: true,
+                        }}
+                        sx={{
+                          "& .MuiInput-input": {
+                            fontWeight: 500,
+                            cursor: "default",
+                          },
+                        }}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {editingId === solution._id ? (
+                        <>
+                          <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                            <Save fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
+                            <Cancel fontSize="small" />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <>
+                          <IconButton size="small" onClick={() => handleEdit(solution)} disabled={loading}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDelete(solution._id)} disabled={loading}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+    </Container>
   );
 }
-
-export default SolutionManager;

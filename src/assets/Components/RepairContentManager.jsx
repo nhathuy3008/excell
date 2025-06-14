@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   getRepairContents,
   createRepairContent,
   updateRepairContent,
   deleteRepairContent,
 } from "../api/repairContentApi";
-
 import {
   Box,
   Button,
@@ -19,319 +18,197 @@ import {
   TableRow,
   Paper,
   IconButton,
-  Tooltip,
+  Container,
+  Grid,
   Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
+  Stack,
+  Card,
+  CardContent,
+  CardActions,
+  InputAdornment,
 } from "@mui/material";
-import { Edit, Delete, Add } from "@mui/icons-material";
+import { Edit, Delete, Save, AddCircleOutline, Search } from "@mui/icons-material";
+
+const initialFormState = { name: "" };
 
 function RepairContentManager() {
   const [repairContents, setRepairContents] = useState([]);
+  const [formData, setFormData] = useState(initialFormState);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [newItemName, setNewItemName] = useState("");
-
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [editFormName, setEditFormName] = useState("");
-
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
+  const fetchRepairContents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getRepairContents();
+      setRepairContents(res.data);
+    } catch (err) {
+      setError("Lỗi tải nội dung sửa chữa.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchRepairContents();
-  }, []);
+  }, [fetchRepairContents]);
 
-  const fetchRepairContents = async () => {
-    try {
-      setError(null);
-      setLoading(true);
-      const res = await getRepairContents();
-      setRepairContents(res.data);
-    } catch (error) {
-      console.error("Lỗi lấy danh sách nội dung sửa chữa:", error);
-      setError("Không thể tải danh sách nội dung sửa chữa.");
-    } finally {
-      setLoading(false);
-    }
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreate = async (e) => {
+  const handleEdit = (item) => {
+    setIsEditMode(true);
+    setFormData(item);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setFormData(initialFormState);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const trimmedInput = newItemName.trim();
-    if (!trimmedInput) {
-      setError("Tên nội dung không được để trống.");
+    if (!formData.name) {
+      setError("Tên nội dung là bắt buộc.");
       return;
     }
-
-    const existed = repairContents.some(
-      (item) => item.name.toLowerCase() === trimmedInput.toLowerCase()
-    );
-    if (existed) {
-      setError("Nội dung sửa chữa đã tồn tại!");
-      return;
-    }
-
+    setLoading(true);
     try {
-      setError(null);
-      setSuccess(null);
-      setLoading(true);
-      await createRepairContent({ name: trimmedInput });
-      setNewItemName("");
+      if (isEditMode) {
+        await updateRepairContent(formData._id, formData);
+      } else {
+        await createRepairContent(formData);
+      }
+      handleCancelEdit();
       await fetchRepairContents();
-      setSuccess("Thêm nội dung sửa chữa thành công!");
-    } catch (error) {
-      console.error("Lỗi tạo nội dung sửa chữa:", error);
-      setError("Lỗi khi tạo nội dung sửa chữa.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpenEditDialog = (item) => {
-    setError(null);
-    setSuccess(null);
-    setEditingItem(item);
-    setEditFormName(item.name);
-    setOpenDialog(true);
-  };
-
-  const handleCloseEditDialog = () => {
-    setOpenDialog(false);
-    setEditingItem(null);
-    setEditFormName("");
-    setError(null);
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    if (!editFormName.trim()) {
-      setError("Tên nội dung không được để trống.");
-      return;
-    }
-    if (!editingItem) return;
-
-    try {
-      setError(null);
-      setSuccess(null);
-      setLoading(true);
-      await updateRepairContent(editingItem._id, { name: editFormName });
-      await fetchRepairContents();
-      handleCloseEditDialog();
-      setSuccess("Cập nhật nội dung sửa chữa thành công!");
-    } catch (error) {
-      console.error("Lỗi cập nhật nội dung sửa chữa:", error);
-      setError("Lỗi khi cập nhật nội dung sửa chữa.");
+    } catch (err) {
+      setError(isEditMode ? "Lỗi cập nhật nội dung." : "Lỗi thêm nội dung mới.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa nội dung này không?")) {
+    if (window.confirm("Bạn có chắc chắn muốn xoá nội dung này?")) {
+      setLoading(true);
       try {
-        setError(null);
-        setSuccess(null);
-        setLoading(true);
         await deleteRepairContent(id);
+        if (isEditMode && formData._id === id) {
+          handleCancelEdit();
+        }
         await fetchRepairContents();
-        setSuccess("Xóa nội dung sửa chữa thành công!");
-      } catch (error) {
-        console.error("Lỗi xoá nội dung sửa chữa:", error);
-        setError("Lỗi khi xóa nội dung sửa chữa.");
+      } catch (err) {
+        setError("Lỗi xoá nội dung.");
+        console.error(err);
       } finally {
         setLoading(false);
       }
     }
   };
 
-  const filteredContents = repairContents.filter((content) =>
-    content.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredContents = repairContents.filter((c) =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const renderForm = () => (
+    <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2, mb: 4, border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        {isEditMode ? "Chỉnh sửa Nội dung" : "Thêm Nội dung mới"}
+      </Typography>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} sm>
+          <TextField fullWidth label="Tên nội dung *" name="name" value={formData.name} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm="auto">
+          <Stack direction="row" spacing={2}>
+            <Button type="submit" variant="contained" startIcon={isEditMode ? <Save /> : <AddCircleOutline />}>
+              {isEditMode ? "Lưu" : "Thêm"}
+            </Button>
+            {isEditMode && <Button onClick={handleCancelEdit} variant="outlined">Huỷ</Button>}
+          </Stack>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+
+  const renderReadOnlyCard = (item) => (
+    <Card key={item._id} variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent>
+        <Typography variant="h6">{item.name}</Typography>
+      </CardContent>
+      <CardActions sx={{ justifyContent: "flex-end" }}>
+        <IconButton size="small" onClick={() => handleEdit(item)}><Edit fontSize="small" /></IconButton>
+        <IconButton size="small" color="error" onClick={() => handleDelete(item._id)}><Delete fontSize="small" /></IconButton>
+      </CardActions>
+    </Card>
+  );
+
+  const renderReadOnlyRow = (item) => (
+    <TableRow key={item._id} hover>
+      <TableCell>{item.name}</TableCell>
+      <TableCell align="right">
+        <IconButton onClick={() => handleEdit(item)}><Edit fontSize="small" /></IconButton>
+        <IconButton onClick={() => handleDelete(item._id)}><Delete fontSize="small" /></IconButton>
+      </TableCell>
+    </TableRow>
   );
 
   return (
-    <Box
-      sx={{
-        maxWidth: 1200,
-        width: "100%",
-        p: 5,
-        backgroundColor: "background.paper",
-        borderRadius: 3,
-        boxShadow: 3,
-        mt: 8,
-        ml: 30,
-      }}
-    >
-      <Typography
-        variant="h4"
-        gutterBottom
-        sx={{ mb: 3, textAlign: "center", color: "primary.main" }}
-      >
+    <Container maxWidth="lg" sx={{ mt: 10, mb: 4, ml: { xs: 0, md: '320px' }, width: { xs: '100%', md: '100%' } }}>
+      <Typography variant="h5" align="center" sx={{ fontWeight: "bold", color: "primary.main", mb: 3 }}>
         Quản lý Nội dung Sửa chữa
       </Typography>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-      <Box
-        component="form"
-        onSubmit={handleCreate}
-        sx={{ display: "flex", gap: 2, mb: 3, alignItems: "center" }}
-      >
-        <TextField
-          label="Thêm nội dung sửa chữa mới"
-          value={newItemName}
-          onChange={(e) => setNewItemName(e.target.value)}
-          variant="outlined"
-          fullWidth
-          size="small"
-          disabled={loading}
-        />
-        <Button
-          variant="contained"
-          color="primary"
-          type="submit"
-          startIcon={<Add />}
-          disabled={loading}
-        >
-          Thêm
-        </Button>
-      </Box>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth label="Tìm kiếm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><Search /></InputAdornment>) }}/>
+        </Grid>
+      </Grid>
 
-      <TextField
-        label="Tìm kiếm nội dung"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        variant="outlined"
-        fullWidth
-        size="small"
-        sx={{ mb: 3 }}
-        disabled={loading}
-      />
+      {renderForm()}
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+      ) : filteredContents.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          {repairContents.length > 0 ? "Không tìm thấy nội dung." : "Chưa có nội dung nào."}
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {filteredContents.map(renderReadOnlyCard)}
+        </Stack>
       ) : (
-        <TableContainer component={Paper} elevation={3}>
-          <Table sx={{ minWidth: 650 }} aria-label="repair content table">
-            <TableHead>
+        <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2 }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: 'grey.50' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>
-                  Tên nội dung sửa chữa
-                </TableCell>
-                <TableCell align="right" sx={{ fontWeight: "bold" }}>
-                  Hành động
-                </TableCell>
+                <TableCell>Tên nội dung</TableCell>
+                <TableCell align="right">Hành động</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredContents.length > 0 ? (
-                filteredContents.map((item) => (
-                  <TableRow
-                    key={item._id}
-                    sx={{
-                      "&:last-child td, &:last-child th": { border: 0 },
-                      "&:hover": { backgroundColor: "action.hover" },
-                    }}
-                  >
-                    <TableCell component="th" scope="row">
-                      {item.name}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Chỉnh sửa">
-                        <span>
-                          <IconButton
-                            onClick={() => handleOpenEditDialog(item)}
-                            color="primary"
-                            size="small"
-                            disabled={loading}
-                          >
-                            <Edit />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Xóa">
-                        <span>
-                          <IconButton
-                            onClick={() => handleDelete(item._id)}
-                            color="error"
-                            size="small"
-                            disabled={loading}
-                          >
-                            <Delete />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                    <Typography variant="subtitle1">
-                      {searchTerm
-                        ? "Không tìm thấy nội dung phù hợp."
-                        : "Chưa có nội dung sửa chữa nào."}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
+              {filteredContents.map(renderReadOnlyRow)}
             </TableBody>
           </Table>
         </TableContainer>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseEditDialog}
-        PaperProps={{ elevation: 5, sx: { borderRadius: 2 } }}
-      >
-        <DialogTitle sx={{ backgroundColor: "primary.main", color: "common.white" }}>
-          Chỉnh sửa Nội dung Sửa chữa
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Tên Nội dung Sửa chữa"
-            fullWidth
-            variant="outlined"
-            value={editFormName}
-            onChange={(e) => setEditFormName(e.target.value)}
-            error={!!error}
-            disabled={loading}
-          />
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseEditDialog} color="secondary" disabled={loading}>
-            Hủy
-          </Button>
-          <Button onClick={handleUpdate} variant="contained" color="primary" disabled={loading}>
-            Cập nhật
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+    </Container>
   );
 }
 

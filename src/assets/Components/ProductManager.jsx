@@ -1,387 +1,330 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  TextField, Button, Dialog, DialogActions, DialogContent,
-  DialogTitle, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, IconButton, Select, MenuItem, Typography,
-  Box, Grid, Alert, CircularProgress
-} from "@mui/material";
-import { Edit, Delete, RemoveCircleOutline, AddCircleOutline, Clear } from "@mui/icons-material";
-import {
-  getProducts, createProduct, deleteProduct, updateProduct
+  getProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
 } from "../api/productApi";
 import { getUnits } from "../api/unitApi";
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  CircularProgress,
+  Alert,
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  CardActions,
+  Stack,
+  Container,
+  Grid,
+  InputAdornment,
+  Select,
+  MenuItem,
+} from "@mui/material";
+import {
+  Edit,
+  Delete,
+  Save,
+  Cancel,
+  AddCircleOutline,
+  Search,
+  RemoveCircleOutline,
+} from "@mui/icons-material";
 
-const ProductManager = () => {
+const initialProductState = {
+  code: "",
+  brand: "",
+  origin: "",
+  specs: [""],
+  unit: "",
+  price: "",
+  tax: "",
+};
+
+export default function ProductManager() {
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [formData, setFormData] = useState(initialProductState);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);         // Load danh sách sản phẩm
-  const [loadingSubmit, setLoadingSubmit] = useState(false); // Load submit form
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const initialFormState = {
-    code: "",
-    brand: "",
-    origin: "",
-    specs: [""],
-    unit: "",
-    price: "",
-    tax: ""
-  };
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const [form, setForm] = useState(initialFormState);
-
-  useEffect(() => {
-    fetchProducts();
-    fetchUnits();
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [productsRes, unitsRes] = await Promise.all([getProducts(), getUnits()]);
+      setProducts(productsRes.data);
+      setUnits(unitsRes.data);
+    } catch (err) {
+      setError("Lỗi tải dữ liệu.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchProducts = async () => {
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSpecChange = (index, value) => {
+    setFormData((prev) => {
+      const newSpecs = [...prev.specs];
+      newSpecs[index] = value;
+      return { ...prev, specs: newSpecs };
+    });
+  };
+
+  const handleAddSpec = () => {
+    setFormData((prev) => ({ ...prev, specs: [...prev.specs, ""] }));
+  };
+
+  const handleRemoveSpec = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      specs: prev.specs.length > 1 ? prev.specs.filter((_, i) => i !== index) : [""],
+    }));
+  };
+
+  const handleEdit = (product) => {
+    setIsEditMode(true);
+    setFormData({ ...product, unit: product.unit?._id || "" });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setFormData(initialProductState);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.code || !formData.price) {
+      setError("Mã sản phẩm và Giá là bắt buộc.");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await getProducts();
-      setProducts(res.data);
-    } catch (error) {
-      console.error("Error fetching products:", error);
-      setFeedback({ type: 'error', message: 'Không thể tải danh sách sản phẩm.' });
+      if (isEditMode) {
+        await updateProduct(formData._id, formData);
+      } else {
+        await createProduct(formData);
+      }
+      handleCancelEdit();
+      await fetchAllData();
+    } catch (err) {
+      setError(isEditMode ? "Lỗi cập nhật sản phẩm." : "Lỗi thêm sản phẩm mới.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUnits = async () => {
-    try {
-      const res = await getUnits();
-      setUnits(res.data);
-    } catch (error) {
-      console.error("Error fetching units:", error);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
-  };
-
-  const handleChangeSpec = (index, value) => {
-    const newSpecs = [...form.specs];
-    newSpecs[index] = value;
-    setForm({ ...form, specs: newSpecs });
-  };
-
-  const handleAddSpecField = () => {
-    setForm({ ...form, specs: [...form.specs, ""] });
-  };
-
-  const handleRemoveSpecField = (index) => {
-    const newSpecs = form.specs.filter((_, i) => i !== index);
-    setForm({ ...form, specs: newSpecs.length > 0 ? newSpecs : [""] });
-  };
-
-  const handleSubmit = async () => {
-    setFeedback({ type: '', message: '' });
-    if (!form.code || !form.price) {
-      setFeedback({ type: 'warning', message: 'Mã hàng và Giá là bắt buộc.' });
-      return;
-    }
-
-    const productData = {
-      ...form,
-      specs: form.specs.filter((s) => s && s.trim() !== ""),
-      price: parseFloat(form.price) || 0,
-      tax: parseFloat(form.tax) || 0
-    };
-
-    setLoadingSubmit(true);
-    try {
-      if (editingProduct) {
-        await updateProduct(editingProduct._id, productData);
-        setFeedback({ type: 'success', message: 'Cập nhật sản phẩm thành công!' });
-      } else {
-        await createProduct(productData);
-        setFeedback({ type: 'success', message: 'Thêm sản phẩm thành công!' });
-      }
-      handleClose();
-      fetchProducts();
-    } catch (error) {
-      console.error("Error submitting product:", error);
-      setFeedback({ type: 'error', message: editingProduct ? 'Lỗi khi cập nhật sản phẩm.' : 'Lỗi khi thêm sản phẩm.' });
-    } finally {
-      setLoadingSubmit(false);
-    }
-  };
-
   const handleDelete = async (id) => {
-    try {
-      await deleteProduct(id);
-      fetchProducts();
-      setFeedback({ type: 'success', message: 'Xoá sản phẩm thành công!' });
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      setFeedback({ type: 'error', message: 'Lỗi khi xoá sản phẩm.' });
+    if (window.confirm("Bạn có chắc chắn muốn xoá sản phẩm này?")) {
+      setLoading(true);
+      try {
+        await deleteProduct(id);
+        if (isEditMode && formData._id === id) {
+          handleCancelEdit();
+        }
+        await fetchAllData();
+      } catch (err) {
+        setError("Lỗi xoá sản phẩm.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const handleEdit = (product) => {
-    setEditingProduct(product);
-    setForm({
-      code: product.code,
-      brand: product.brand || "",
-      origin: product.origin || "",
-      specs: product.specs && product.specs.length > 0 ? product.specs : [""],
-      unit: product.unit?._id || "",
-      price: product.price !== undefined ? product.price : "",
-      tax: product.tax !== undefined ? product.tax : ""
-    });
-    setOpen(true);
-    setFeedback({ type: '', message: '' });
-  };
+  const filteredProducts = products.filter(
+    (p) =>
+      p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
-  const handleOpenAddDialog = () => {
-    setEditingProduct(null);
-    setForm(initialFormState);
-    setOpen(true);
-    setFeedback({ type: '', message: '' });
-  };
+  const renderProductForm = () => (
+    <Paper component="form" onSubmit={handleSubmit} sx={{ p: 2, mb: 4, border: (theme) => `1px solid ${theme.palette.divider}`, borderRadius: 2 }}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        {isEditMode ? "Chỉnh sửa Sản phẩm" : "Thêm Sản phẩm mới"}
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField fullWidth label="Mã sản phẩm *" name="code" value={formData.code} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField fullWidth label="Thương hiệu" name="brand" value={formData.brand} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField fullWidth label="Xuất xứ" name="origin" value={formData.origin} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField fullWidth label="Giá *" name="price" type="number" value={formData.price} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField fullWidth label="Thuế (%)" name="tax" type="number" value={formData.tax} onChange={handleFormChange} size="small" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Select fullWidth label="Đơn vị" name="unit" value={formData.unit} onChange={handleFormChange} size="small" displayEmpty>
+            <MenuItem value=""><em>Chọn đơn vị</em></MenuItem>
+            {units.map((u) => (<MenuItem key={u._id} value={u._id}>{u.name}</MenuItem>))}
+          </Select>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Thông số kỹ thuật</Typography>
+          {formData.specs.map((spec, index) => (
+            <Stack direction="row" spacing={1} key={index} sx={{ mb: 1 }}>
+              <TextField fullWidth value={spec} onChange={(e) => handleSpecChange(index, e.target.value)} size="small" placeholder={`Thông số ${index + 1}`} />
+              <IconButton onClick={() => handleRemoveSpec(index)} size="small"><RemoveCircleOutline /></IconButton>
+            </Stack>
+          ))}
+          <Button onClick={handleAddSpec} size="small">Thêm thông số</Button>
+        </Grid>
+        <Grid item xs={12}>
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Button type="submit" variant="contained" startIcon={isEditMode ? <Save /> : <AddCircleOutline />}>
+              {isEditMode ? "Lưu" : "Thêm mới"}
+            </Button>
+            {isEditMode && <Button onClick={handleCancelEdit} variant="outlined">Huỷ</Button>}
+          </Stack>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
 
-  const handleClose = () => {
-    if (loadingSubmit) return; // Không cho đóng dialog khi đang submit
-    setOpen(false);
-    setEditingProduct(null);
-    setForm(initialFormState);
-  };
+  const renderReadOnlyCard = (product) => (
+    <Card key={product._id} variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ pb: 1 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{product.code}</Typography>
+            <Typography variant="body2" color="text.secondary">{product.brand || '-'}</Typography>
+          </Box>
+          <Typography variant="h6" color="primary.main">{product.price?.toLocaleString()}₫</Typography>
+        </Stack>
+        <Grid container spacing={1} sx={{ mt: 2 }}>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="text.secondary">Xuất xứ</Typography>
+            <Typography variant="body2">{product.origin || '-'}</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="text.secondary">Đơn vị</Typography>
+            <Typography variant="body2">{product.unit?.name || '-'}</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="caption" color="text.secondary">Thuế</Typography>
+            <Typography variant="body2">{product.tax ?? 0}%</Typography>
+          </Grid>
+          {product.specs && product.specs.length > 0 && product.specs.some(s => s.trim() !== '') && (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">Thông số</Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                {product.specs.map((spec, i) => (
+                  spec && <Typography component="li" variant="body2" key={i}>{spec}</Typography>
+                ))}
+              </Box>
+            </Grid>
+          )}
+        </Grid>
+      </CardContent>
+      <CardActions sx={{ justifyContent: "flex-end", px: 2, pb: 2 }}>
+        <IconButton size="small" onClick={() => handleEdit(product)}><Edit fontSize="small" /></IconButton>
+        <IconButton size="small" color="error" onClick={() => handleDelete(product._id)}><Delete fontSize="small" /></IconButton>
+      </CardActions>
+    </Card>
+  );
 
-  const filteredProducts = products.filter(product =>
-    product.code.toLowerCase().includes(searchTerm.toLowerCase())
+  const renderReadOnlyRow = (product) => (
+    <TableRow key={product._id} hover>
+      <TableCell>{product.code}</TableCell>
+      <TableCell>{product.brand}</TableCell>
+      <TableCell>{product.origin}</TableCell>
+      <TableCell>{product.unit?.name}</TableCell>
+      <TableCell>{product.price?.toLocaleString()}</TableCell>
+      <TableCell>
+        {product.specs && product.specs.length > 0 && product.specs.some(s => s.trim() !== '') ? (
+          <Box component="ul" sx={{ m: 0, p: 0, pl: 2, listStylePosition: 'inside' }}>
+            {product.specs.map((spec, i) => (
+              spec && <Typography component="li" variant="body2" key={i} sx={{ display: 'list-item' }}>{spec}</Typography>
+            ))}
+          </Box>
+        ) : '-'}
+      </TableCell>
+      <TableCell align="right">
+        <IconButton onClick={() => handleEdit(product)}><Edit fontSize="small" /></IconButton>
+        <IconButton onClick={() => handleDelete(product._id)}><Delete fontSize="small" /></IconButton>
+      </TableCell>
+    </TableRow>
   );
 
   return (
-    <Box sx={{ p: 3.5, mt: 8, backgroundColor: 'background.paper', borderRadius: 3 }}>
-      <Grid container justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Grid item>
-          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-            Quản lý Sản phẩm
-          </Typography>
-        </Grid>
-        <Grid item>
-          <Button variant="contained" color="primary" onClick={handleOpenAddDialog} startIcon={<AddCircleOutline />} sx={{ py: 1.2, px: 2.5 }}>
-            Thêm sản phẩm
-          </Button>
+    <Container maxWidth="1300px" sx={{ mt: 10, mb: 4, ml: { xs: 0, md: 0 }, width: { xs: '100%', md: '100%' } }}>
+      <Typography variant="h5" align="center" sx={{ fontWeight: "bold", color: "primary.main", mb: 3 }}>
+        Quản lý Sản phẩm
+      </Typography>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth label="Tìm kiếm sản phẩm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><Search /></InputAdornment>) }}/>
         </Grid>
       </Grid>
 
-      {feedback.message && !open && (
-        <Alert severity={feedback.type} sx={{ mb: 2 }} onClose={() => setFeedback({ type: '', message: '' })}>{feedback.message}</Alert>
+      {renderProductForm()}
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+      ) : filteredProducts.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          {products.length > 0 ? "Không tìm thấy sản phẩm." : "Chưa có sản phẩm nào."}
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {filteredProducts.map((p) => renderReadOnlyCard(p))}
+        </Stack>
+      ) : (
+        <Paper elevation={2} sx={{ overflowX: "auto", borderRadius: 2 }}>
+          <Table>
+            <TableHead sx={{ backgroundColor: 'grey.50' }}>
+              <TableRow>
+                <TableCell>Mã</TableCell>
+                <TableCell>Thương hiệu</TableCell>
+                <TableCell>Xuất xứ</TableCell>
+                <TableCell>Đơn vị</TableCell>
+                <TableCell>Giá</TableCell>
+                <TableCell>Thông số</TableCell>
+                <TableCell align="right">Hành động</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredProducts.map((p) => renderReadOnlyRow(p))}
+            </TableBody>
+          </Table>
+        </Paper>
       )}
-
-      <TextField
-        fullWidth
-        label="Tìm kiếm theo mã sản phẩm"
-        variant="outlined"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        sx={{ mb: 3 }}
-        size="small"
-      />
-
-      <TableContainer component={Paper} elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <Table sx={{ minWidth: 750 }}>
-          <TableHead sx={{ backgroundColor: 'grey.100' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Mã</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Thương hiệu</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Xuất xứ</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Thông số</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }}>Đơn vị</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }} align="right">Giá</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }} align="center">Thuế (%)</TableCell>
-              <TableCell sx={{ fontWeight: '600', py: 1.5, px: 2 }} align="center">Hành động</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : filteredProducts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {searchTerm ? "Không tìm thấy sản phẩm nào khớp với mã bạn nhập." : "Chưa có sản phẩm nào. Vui lòng thêm mới."}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredProducts.map((p) => (
-                <TableRow key={p._id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                  <TableCell sx={{ py: 1, px: 2 }}>{p.code}</TableCell>
-                  <TableCell sx={{ py: 1, px: 2 }}>{p.brand || '-'}</TableCell>
-                  <TableCell sx={{ py: 1, px: 2 }}>{p.origin || '-'}</TableCell>
-                  <TableCell sx={{ py: 1, px: 2 }}>
-                    {p.specs && p.specs.length > 0 ? (
-                      <ul style={{ margin: 0, paddingLeft: 16, listStyleType: 'disc' }}>
-                        {p.specs.map((s, i) => (
-                          <li key={i} style={{ whiteSpace: 'wrap' }}>{s}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <em>-</em>
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ py: 1, px: 2 }}>{p.unit?.name || '-'}</TableCell>
-                  <TableCell align="right" sx={{ py: 1, px: 2 }}>{p.price.toLocaleString()}₫</TableCell>
-                  <TableCell align="center" sx={{ py: 1, px: 2 }}>{p.tax ?? 0}</TableCell>
-                  <TableCell align="center" sx={{ py: 1, px: 2 }}>
-                    <IconButton size="small" color="primary" onClick={() => handleEdit(p)} title="Sửa">
-                      <Edit fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(p._id)} title="Xóa">
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm"}</DialogTitle>
-        <DialogContent dividers>
-          {feedback.message && (
-            <Alert severity={feedback.type} sx={{ mb: 2 }}>
-              {feedback.message}
-            </Alert>
-          )}
-
-          <TextField
-            label="Mã sản phẩm *"
-            name="code"
-            fullWidth
-            margin="normal"
-            size="small"
-            value={form.code}
-            onChange={handleChange}
-            disabled={loadingSubmit}
-          />
-          <TextField
-            label="Thương hiệu"
-            name="brand"
-            fullWidth
-            margin="normal"
-            size="small"
-            value={form.brand}
-            onChange={handleChange}
-            disabled={loadingSubmit}
-          />
-          <TextField
-            label="Xuất xứ"
-            name="origin"
-            fullWidth
-            margin="normal"
-            size="small"
-            value={form.origin}
-            onChange={handleChange}
-            disabled={loadingSubmit}
-          />
-
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            Thông số kỹ thuật
-          </Typography>
-          {form.specs.map((spec, idx) => (
-            <Box key={idx} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <TextField
-                size="small"
-                fullWidth
-                value={spec}
-                onChange={(e) => handleChangeSpec(idx, e.target.value)}
-                disabled={loadingSubmit}
-                placeholder="Thông số"
-              />
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleRemoveSpecField(idx)}
-                disabled={loadingSubmit || form.specs.length === 1}
-                sx={{ ml: 1 }}
-              >
-                <RemoveCircleOutline fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
-          <Button
-            size="small"
-            startIcon={<AddCircleOutline />}
-            onClick={handleAddSpecField}
-            disabled={loadingSubmit}
-            sx={{ mb: 2 }}
-          >
-            Thêm thông số
-          </Button>
-
-          <Select
-            fullWidth
-            size="small"
-            name="unit"
-            value={form.unit}
-            onChange={handleChange}
-            displayEmpty
-            disabled={loadingSubmit}
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="">
-              <em>Chọn đơn vị</em>
-            </MenuItem>
-            {units.map((unit) => (
-              <MenuItem key={unit._id} value={unit._id}>
-                {unit.name}
-              </MenuItem>
-            ))}
-          </Select>
-
-          <TextField
-            label="Giá"
-            name="price"
-            fullWidth
-            margin="normal"
-            size="small"
-            type="number"
-            value={form.price}
-            onChange={handleChange}
-            disabled={loadingSubmit}
-          />
-          <TextField
-            label="Thuế (%)"
-            name="tax"
-            fullWidth
-            margin="normal"
-            size="small"
-            type="number"
-            value={form.tax}
-            onChange={handleChange}
-            disabled={loadingSubmit}
-          />
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleClose} disabled={loadingSubmit}>Đóng</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={loadingSubmit}
-            startIcon={loadingSubmit ? <CircularProgress size={20} color="inherit" /> : null}
-          >
-            {editingProduct ? "Cập nhật" : "Thêm"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+    </Container>
   );
-};
-
-export default ProductManager;
+}

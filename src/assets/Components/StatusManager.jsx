@@ -1,41 +1,51 @@
 import React, { useEffect, useState } from "react";
 import {
+  getStatuses,
+  createStatus,
+  deleteStatus,
+  updateStatus,
+} from "../api/statusApi";
+import {
+  Box,
   Button,
   TextField,
+  Typography,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Paper,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
-  Box,
-  Tooltip,
+  CircularProgress,
   Alert,
-  CircularProgress, // import spinner
+  useMediaQuery,
+  useTheme,
+  Card,
+  CardContent,
+  CardActions,
+  Stack,
+  Container,
+  Grid,
 } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
 import {
-  getStatuses,
-  createStatus,
-  updateStatus,
-  deleteStatus,
-} from "../api/statusApi";
+  Edit,
+  Delete,
+  Save,
+  Cancel,
+  AddCircleOutline,
+} from "@mui/icons-material";
 
-const StatusManager = () => {
+export default function StatusManager() {
   const [statuses, setStatuses] = useState([]);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editId, setEditId] = useState(null);
   const [name, setName] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editingName, setEditingName] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [loading, setLoading] = useState(false); // loading state
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     fetchStatuses();
@@ -43,175 +53,293 @@ const StatusManager = () => {
 
   const fetchStatuses = async () => {
     try {
-      setLoading(true); // bật loading khi fetch
       setError(null);
+      setLoading(true);
       const res = await getStatuses();
       setStatuses(res.data);
     } catch (err) {
-      console.error("Lỗi khi load status:", err);
-      setError("Không thể tải danh sách trạng thái.");
+      setError("Lỗi tải danh sách trạng thái.");
+      console.error(err);
     } finally {
-      setLoading(false); // tắt loading sau khi fetch xong
+      setLoading(false);
     }
   };
 
-  const handleOpen = (status = null) => {
-    setError(null);
-    setSuccess(null);
-    if (status) {
-      setEditId(status._id);
-      setName(status.name);
-    } else {
-      setEditId(null);
-      setName("");
-    }
-    setOpenDialog(true);
-  };
-
-  const handleClose = () => {
-    setOpenDialog(false);
-    setEditId(null);
-    setName("");
-    setError(null);
-  };
-
-  const handleSubmit = async () => {
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
     try {
-      setLoading(true); // bật loading khi gửi request
       setError(null);
-      setSuccess(null);
-      if (!name.trim()) {
-        setError("Tên trạng thái không được để trống.");
-        setLoading(false);
-        return;
-      }
-      if (editId) {
-        await updateStatus(editId, { name });
-        setSuccess("Cập nhật trạng thái thành công!");
-      } else {
-        await createStatus({ name });
-        setSuccess("Thêm trạng thái thành công!");
-      }
+      setLoading(true);
+      await createStatus(name.trim());
+      setName("");
       await fetchStatuses();
-      handleClose();
     } catch (err) {
-      console.error("Lỗi khi thêm/sửa status:", err);
-      setError(editId ? "Lỗi khi cập nhật trạng thái." : "Lỗi khi thêm trạng thái.");
+      setError("Lỗi thêm trạng thái mới.");
+      console.error(err);
     } finally {
-      setLoading(false); // tắt loading khi request xong
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa status này không?")) {
+    if (window.confirm("Bạn có chắc chắn muốn xoá trạng thái này?")) {
       try {
-        setLoading(true);
         setError(null);
-        setSuccess(null);
+        setLoading(true);
         await deleteStatus(id);
-        setSuccess("Xóa trạng thái thành công!");
         await fetchStatuses();
       } catch (err) {
-        console.error("Lỗi khi xóa status:", err);
-        setError("Lỗi khi xóa trạng thái.");
+        setError("Lỗi xoá trạng thái.");
+        console.error(err);
       } finally {
         setLoading(false);
       }
     }
   };
 
+  const handleEdit = (status) => {
+    setError(null);
+    setEditingId(status._id);
+    setEditingName(status.name);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingName.trim()) return;
+    try {
+      setError(null);
+      setLoading(true);
+      await updateStatus(editingId, editingName.trim());
+      setEditingId(null);
+      setEditingName("");
+      await fetchStatuses();
+    } catch (err) {
+      setError("Lỗi cập nhật trạng thái.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setError(null);
+    setEditingId(null);
+    setEditingName("");
+  };
+
   return (
-    <Box sx={{ maxWidth: 1200, width: "100%", p: 5, backgroundColor: "background.paper", borderRadius: 3, boxShadow: 3, mt: 8, ml: 30 }}>
-      <Typography variant="h4" gutterBottom sx={{ mb: 3, textAlign: "center", color: "primary.main" }}>
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        mt: 10, 
+        mb: 4,
+        ml: { xs: 0, md: '400px' },
+        width: { xs: '100%', md: '100%' }
+      }}
+    >
+      <Typography
+        variant="h5"
+        align="center"
+        sx={{ 
+          fontWeight: "bold", 
+          color: "primary.main", 
+          mb: { xs: 2, sm: 3 },
+          fontSize: { xs: '1.25rem', sm: '1.5rem' }
+        }}
+      >
         Quản lý Trạng thái
       </Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
-
-      <Button variant="contained" onClick={() => handleOpen()} sx={{ mb: 3 }} disabled={loading}>
-        Thêm Trạng thái mới {loading && <CircularProgress size={20} sx={{ ml: 1, color: 'white' }} />}
-      </Button>
-
-      <TableContainer component={Paper} elevation={3}>
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
-          <TableHead sx={{ backgroundColor: "grey.100" }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: "bold" }}>Tên Trạng thái</TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Ngày tạo</TableCell>
-              <TableCell align="right" sx={{ fontWeight: "bold" }}>Hành động</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : statuses.length > 0 ? (
-              statuses.map((status) => (
-                <TableRow
-                  key={status._id}
-                  sx={{ "&:last-child td, &:last-child th": { border: 0 }, "&:hover": { backgroundColor: "action.hover" } }}
-                >
-                  <TableCell component="th" scope="row">
-                    {status.name}
-                  </TableCell>
-                  <TableCell>{new Date(status.createdAt).toLocaleString()}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Chỉnh sửa">
-                      <IconButton onClick={() => handleOpen(status)} color="primary" size="small" disabled={loading}>
-                        <Edit />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Xóa">
-                      <IconButton onClick={() => handleDelete(status._id)} color="error" size="small" disabled={loading}>
-                        <Delete />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
-                  <Typography variant="subtitle1">Không có trạng thái nào.</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Dialog open={openDialog} onClose={handleClose} PaperProps={{ elevation: 5, sx: { borderRadius: 2 } }}>
-        <DialogTitle sx={{ backgroundColor: "primary.main", color: "common.white" }}>
-          {editId ? "Chỉnh sửa Trạng thái" : "Thêm Trạng thái mới"}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      <Grid container spacing={2} component="form" onSubmit={handleCreate} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={8}>
           <TextField
-            autoFocus
-            margin="dense"
-            label="Tên Trạng thái"
             fullWidth
-            variant="outlined"
+            label="Tên trạng thái mới"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            error={!!error}
-            disabled={loading} // disable input khi loading
+            size="small"
+            disabled={loading}
+            sx={{ 
+              '& .MuiOutlinedInput-root': {
+                height: { xs: '40px', sm: '48px' }
+              }
+            }}
           />
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="secondary" disabled={loading}>Hủy</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary" disabled={loading}>
-            {loading && <CircularProgress size={20} sx={{ mr: 1, color: 'white' }} />}
-            {editId ? "Cập nhật" : "Thêm"}
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Button
+            type="submit"
+            variant="contained"
+            startIcon={<AddCircleOutline />}
+            disabled={loading}
+            fullWidth
+            sx={{ 
+              height: { xs: '40px', sm: '48px' },
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
+            Thêm mới
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
+        </Grid>
+      </Grid>
 
-export default StatusManager;
+      {loading ? (
+        <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : statuses.length === 0 ? (
+        <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+          Chưa có trạng thái nào.
+        </Typography>
+      ) : isMobile ? (
+        <Stack spacing={2}>
+          {statuses.map((status) => (
+            <Card key={status._id} variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent sx={{ pb: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Trạng thái
+                </Typography>
+                {editingId === status._id ? (
+                  <TextField
+                    fullWidth
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    size="small"
+                    autoFocus
+                    disabled={loading}
+                    sx={{ mt: 1 }}
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    value={status.name}
+                    variant="standard"
+                    sx={{
+                      mt: 1,
+                      '& .MuiInput-input': {
+                        fontWeight: 500,
+                        cursor: 'default',
+                      },
+                    }}
+                    InputProps={{
+                      readOnly: true,
+                      disableUnderline: true,
+                    }}
+                  />
+                )}
+              </CardContent>
+              <CardActions sx={{ justifyContent: "space-between", px: 2, pb: 2 }}>
+                <Stack direction="row" spacing={1}>
+                  {editingId === status._id ? (
+                    <>
+                      <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                        <Save fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </>
+                  ) : (
+                    <>
+                      <IconButton size="small" onClick={() => handleEdit(status)} disabled={loading}>
+                        <Edit fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(status._id)} disabled={loading}>
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </>
+                  )}
+                </Stack>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Paper 
+          elevation={2} 
+          sx={{ 
+            overflowX: "auto",
+            borderRadius: 2,
+            '& .MuiTableCell-root': {
+              py: { xs: 1, sm: 1.5 }
+            }
+          }}
+        >
+          <Table>
+            <TableHead sx={{ backgroundColor: 'grey.50' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600 }}>Tên trạng thái</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>Hành động</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {statuses.map((status) => (
+                <TableRow key={status._id} hover>
+                  <TableCell>
+                    {editingId === status._id ? (
+                      <TextField
+                        fullWidth
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        size="small"
+                        autoFocus
+                        disabled={loading}
+                        variant="standard"
+                      />
+                    ) : (
+                      <TextField
+                        fullWidth
+                        value={status.name}
+                        variant="standard"
+                        InputProps={{
+                          readOnly: true,
+                          disableUnderline: true,
+                        }}
+                        sx={{
+                          '& .MuiInput-input': {
+                            fontWeight: 500,
+                            cursor: 'default',
+                          },
+                        }}
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                      {editingId === status._id ? (
+                        <>
+                          <IconButton size="small" color="success" onClick={handleUpdate} disabled={loading}>
+                            <Save fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={handleCancelEdit} disabled={loading}>
+                            <Cancel fontSize="small" />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <>
+                          <IconButton size="small" onClick={() => handleEdit(status)} disabled={loading}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDelete(status._id)} disabled={loading}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </>
+                      )}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+    </Container>
+  );
+}
+

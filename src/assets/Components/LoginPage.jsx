@@ -1,6 +1,172 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import styled, { createGlobalStyle } from 'styled-components';
 import { loginAccount, forgotPassword, resetPassword } from "../api/accountApi";
+
+const GlobalStyle = createGlobalStyle`
+  body {
+    background-color: #f0f2f5;
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    box-sizing: border-box;
+
+    @media (max-width: 480px) {
+      padding: 0;
+    }
+  }
+`;
+
+const LoginContainer = styled.div`
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  width: 550px;
+  text-align: center;
+  box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    width: 100%;  
+    padding: 30px 50px;
+  }
+`;
+
+const Title = styled.h2`
+  margin-bottom: 24px;
+  color: #333;
+  font-size: 24px;
+
+  @media (max-width: 480px) {
+    font-size: 22px;
+  }
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+`;
+
+const Input = styled.input`
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  transition: border-color 0.3s;
+
+  &:focus {
+    border-color: #007bff;
+    outline: none;
+  }
+`;
+
+const Button = styled.button`
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 45px; /* Ensure button height is consistent */
+
+  &:hover:not(:disabled) {
+    background-color: #0056b3;
+  }
+
+  &:disabled {
+    background-color: #0056b3;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+`;
+
+const Spinner = styled.div`
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+const ForgotPasswordLink = styled.a`
+  color: #007bff;
+  text-decoration: none;
+  font-size: 14px;
+  margin-top: 15px;
+  display: inline-block;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+const ErrorMessage = styled.p`
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 10px;
+`;
+
+const ModalTitle = styled.h3`
+  margin-bottom: 20px;
+  font-size: 22px;
+
+  @media (max-width: 480px) {
+    font-size: 20px;
+  }
+`;
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 450px;
+  text-align: center;
+  box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    padding: 25px 20px;
+  }
+`;
+
+const CloseButton = styled(Button)`
+  background-color: #6c757d;
+  margin-top: 20px;
+
+  &:hover {
+    background-color: #5a6268;
+  }
+`;
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -10,15 +176,16 @@ const LoginPage = () => {
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [step, setStep] = useState(1); // 1: nhập email, 2: nhập mã code, 3: nhập mật khẩu mới
+  const [step, setStep] = useState(1);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      navigate("/cars");
+      window.location.href = "/cars";
     }
-  }, []);
+  }, [navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -26,288 +193,139 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
+    setIsLoading(true);
+    setError("");
     try {
       const res = await loginAccount(form);
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("token_expiry", Date.now() + 60 * 60 * 1000);
-      navigate("/cars");
+      window.location.href = "/cars";
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
+      setIsLoading(false);
     }
   };
 
   const handleForgotPassword = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setError("");
+    setMessage("");
     try {
       await forgotPassword({ email: forgotPasswordEmail });
       setMessage("Mã xác thực đã được gửi đến email của bạn");
       setStep(2);
     } catch (err) {
       setError(err.response?.data?.message || "Không thể gửi mã xác thực");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleResetPassword = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    setError("");
+    setMessage("");
     try {
       await resetPassword({
         email: forgotPasswordEmail,
         code: resetCode,
-        newPassword: newPassword
+        newPassword: newPassword,
       });
       setMessage("Đặt lại mật khẩu thành công");
-      setIsModalOpen(false);
-      setStep(1);
-      setForgotPasswordEmail("");
-      setResetCode("");
-      setNewPassword("");
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setStep(1);
+        setForgotPasswordEmail("");
+        setResetCode("");
+        setNewPassword("");
+        setMessage("");
+      }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || "Không thể đặt lại mật khẩu");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const openModal = (e) => {
+    e.preventDefault();
+    setIsModalOpen(true);
+    setError("");
+    setMessage("");
+    setStep(1);
+  }
+
   return (
-    <div className="page-wrapper">
-      <div className="page-container">
-        <div className="login-container">
-          <div className="login-box">
-            <h2>Đăng nhập</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="input-group">
-                <input 
-                  name="email" 
-                  placeholder="Email" 
-                  onChange={handleChange} 
-                  required 
-                  className="login-input"
-                />
-              </div>
-              <div className="input-group">
-                <input 
-                  name="password" 
-                  type="password" 
-                  placeholder="Mật khẩu" 
-                  onChange={handleChange} 
-                  required 
-                  className="login-input"
-                />
-              </div>
-              <div className="forgot-password">
-                <a href="#" onClick={() => setIsModalOpen(true)}>Quên mật khẩu?</a>
-              </div>
-              <button type="submit" className="login-button">Đăng nhập</button>
-            </form>
-            {error && <p className="error-message">{error}</p>}
-          </div>
-        </div>
-      </div>
+    <>
+      <GlobalStyle />
+      <LoginContainer>
+        <Title>Đăng nhập</Title>
+        <Form onSubmit={handleSubmit}>
+          <Input name="email" placeholder="Email" onChange={handleChange} required />
+          <Input name="password" type="password" placeholder="Mật khẩu" onChange={handleChange} required />
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? <Spinner /> : "Đăng nhập"}
+          </Button>
+        </Form>
+        <ForgotPasswordLink href="#" onClick={openModal}>Quên mật khẩu?</ForgotPasswordLink>
+        {error && <ErrorMessage>{error}</ErrorMessage>}
+      </LoginContainer>
 
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>{step === 1 ? "Quên mật khẩu" : step === 2 ? "Nhập mã xác thực" : "Đặt lại mật khẩu"}</h3>
-            {message && <p className="success-message">{message}</p>}
-            {error && <p className="error-message">{error}</p>}
+        <ModalOverlay>
+          <ModalContent>
+            <ModalTitle>{step === 1 ? "Quên mật khẩu" : step === 2 ? "Nhập mã xác thực" : "Đặt lại mật khẩu"}</ModalTitle>
+            {message && <p style={{ color: 'green' }}>{message}</p>}
+            {error && <ErrorMessage>{error}</ErrorMessage>}
             
             {step === 1 && (
-              <div className="input-group">
-                <input
+              <>
+                <Input
                   type="email"
                   placeholder="Nhập email của bạn"
                   value={forgotPasswordEmail}
                   onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                  className="login-input"
                 />
-                <button onClick={handleForgotPassword} className="login-button">Gửi mã xác thực</button>
-              </div>
+                <Button onClick={handleForgotPassword} disabled={isLoading}>
+                  {isLoading ? <Spinner /> : "Gửi mã xác thực"}
+                </Button>
+              </>
             )}
 
             {step === 2 && (
-              <div className="input-group">
-                <input
+              <>
+                <Input
                   type="text"
                   placeholder="Nhập mã xác thực"
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value)}
-                  className="login-input"
                 />
-                <button onClick={() => setStep(3)} className="login-button">Tiếp tục</button>
-              </div>
+                <Button onClick={() => setStep(3)}>Tiếp tục</Button>
+              </>
             )}
 
             {step === 3 && (
-              <div className="input-group">
-                <input
+              <>
+                <Input
                   type="password"
                   placeholder="Nhập mật khẩu mới"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="login-input"
                 />
-                <button onClick={handleResetPassword} className="login-button">Đặt lại mật khẩu</button>
-              </div>
+                <Button onClick={handleResetPassword} disabled={isLoading}>
+                  {isLoading ? <Spinner /> : "Đặt lại mật khẩu"}
+                </Button>
+              </>
             )}
 
-            <button className="close-button" onClick={() => {
-              setIsModalOpen(false);
-              setStep(1);
-              setError("");
-              setMessage("");
-            }}>×</button>
-          </div>
-        </div>
+            <CloseButton onClick={() => setIsModalOpen(false)}>Đóng</CloseButton>
+          </ModalContent>
+        </ModalOverlay>
       )}
-
-      <style jsx>{`
-        .page-wrapper {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: #f5f5f5;
-        }
-
-        .page-container {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 20px;
-          box-sizing: border-box;
-          padding-top: 84px;
-        }
-
-        .login-container {
-          width: 100%;
-          max-width: 400px;
-        }
-
-        .login-box {
-          background: white;
-          padding: 2rem;
-          border-radius: 10px;
-          box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-          width: 100%;
-        }
-
-        h2 {
-          color: #333;
-          margin-bottom: 1.5rem;
-          text-align: center;
-          font-size: 1.8rem;
-        }
-
-        .input-group {
-          margin-bottom: 1rem;
-        }
-
-        .login-input {
-          width: 100%;
-          padding: 0.8rem;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 1rem;
-          transition: border-color 0.3s ease;
-        }
-
-        .login-input:focus {
-          border-color: #4a90e2;
-          outline: none;
-          box-shadow: 0 0 5px rgba(74, 144, 226, 0.3);
-        }
-
-        .login-button {
-          width: 100%;
-          padding: 0.8rem;
-          background-color: #4a90e2;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: background-color 0.3s ease;
-        }
-
-        .login-button:hover {
-          background-color: #357abd;
-        }
-
-        .error-message {
-          color: #dc3545;
-          text-align: center;
-          margin-top: 1rem;
-          font-size: 0.9rem;
-        }
-
-        .forgot-password {
-          text-align: right;
-          margin-bottom: 1rem;
-        }
-
-        .forgot-password a {
-          color: #4a90e2;
-          text-decoration: none;
-          font-size: 0.9rem;
-        }
-
-        .forgot-password a:hover {
-          text-decoration: underline;
-        }
-
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-        }
-
-        .modal-content {
-          background: white;
-          padding: 2rem;
-          border-radius: 10px;
-          position: relative;
-          width: 90%;
-          max-width: 400px;
-          box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .close-button {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-          padding: 5px;
-        }
-
-        .close-button:hover {
-          color: #333;
-        }
-
-        .success-message {
-          color: #28a745;
-          text-align: center;
-          margin: 1rem 0;
-          font-size: 0.9rem;
-        }
-
-        h3 {
-          text-align: center;
-          margin-bottom: 1.5rem;
-          color: #333;
-          font-size: 1.5rem;
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 
