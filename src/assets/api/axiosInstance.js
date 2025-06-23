@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "https://excell-6plq.onrender.com/api",
+  baseURL: "https://excel-wcj1.onrender.com/api",
 });
 
 instance.interceptors.request.use((config) => {
