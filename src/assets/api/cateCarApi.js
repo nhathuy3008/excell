@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://excel-ndpr.onrender.com/api/catecar"; // đổi theo URL backend bạn
+const API_URL = "https://excell-6plq.onrender.com/api/catecar"; // đổi theo URL backend bạn
 
 export const getCateCars = () => axios.get(`${API_URL}/`);
 export const createCateCar = (data) => axios.post(`${API_URL}/create`, data);

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "https://excel-ndpr.onrender.com/api/accounts";
+const API_URL = "https://excell-6plq.onrender.com/api/accounts";
 
 // Auth & Account
 export const registerAccount = (data) => axios.post(`${API_URL}/register`, data);

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "https://excel-ndpr.onrender.com/api/products"; // 👈 Nếu BE chạy ở cổng 3000 (xem server.js)
+const API_BASE = "https://excell-6plq.onrender.com/api/products"; // 👈 Nếu BE chạy ở cổng 3000 (xem server.js)
 
 export const getProducts = () => axios.get(API_BASE);
 export const createProduct = (data) => axios.post(`${API_BASE}/create`, data);

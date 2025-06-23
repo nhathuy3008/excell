@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "https://excel-ndpr.onrender.com/api/solutions";
+const API_BASE = "https://excell-6plq.onrender.com/api/solutions";
 
 export const getSolutions = () => axios.get(`${API_BASE}`);
 export const createSolution = (data) => axios.post(`${API_BASE}/create`, data);
